@@ -781,9 +781,12 @@ void ControllerWidget::on_deadZoneSlider_valueChanged(int value)
 
 void ControllerWidget::on_analogStickRangeSlider_valueChanged(int value)
 {
+    double actualRange = 127.0 * value / 100.0;
     QString title = tr("Analog Stick Range: ");
+    title += QString::number(actualRange, 'f', 1);
+    title += " (";
     title += QString::number(value);
-    title += "%";
+    title += "%)";
 
     this->analogStickRangeGroupBox->setTitle(title);
     this->controllerImageWidget->SetRange(value);
@@ -1882,7 +1885,9 @@ void ControllerWidget::LoadSettings(QString sectionQString, bool loadUserProfile
     bool realN64Range = CoreSettingsGetBoolValue(SettingsID::Input_RealN64Range, section);
     this->realN64RangeCheckBox->setChecked(realN64Range);
     this->analogStickRangeSlider->setEnabled(!realN64Range);
-    this->analogStickRangeSlider->setValue(CoreSettingsGetIntValue(SettingsID::Input_Range, section));
+    int rangeValue = CoreSettingsGetIntValue(SettingsID::Input_Range, section);
+    this->analogStickRangeSlider->setValue(rangeValue);
+    this->on_analogStickRangeSlider_valueChanged(rangeValue);
     this->deadZoneSlider->setValue(CoreSettingsGetIntValue(SettingsID::Input_Deadzone, section));
     this->optionsDialogSettings.RemoveDuplicateMappings = CoreSettingsGetBoolValue(SettingsID::Input_RemoveDuplicateMappings, section);
     this->optionsDialogSettings.ControllerPak = CoreSettingsGetIntValue(SettingsID::Input_Pak, section);
