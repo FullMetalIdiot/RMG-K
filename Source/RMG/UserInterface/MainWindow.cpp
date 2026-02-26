@@ -23,6 +23,7 @@
 #include "Dialog/Netplay/CreateNetplaySessionDialog.hpp"
 #include "Dialog/Netplay/NetplaySessionDialog.hpp"
 #endif // NETPLAY
+#include "KailleraUIBridge.hpp"
 #include "UserInterface/EventFilter.hpp"
 #include "Utilities/QtKeyToSdl3Key.hpp"
 #include "Utilities/QtMessageBox.hpp"
@@ -2532,6 +2533,8 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
             this, &MainWindow::on_Kaillera_GameStarted);
     connect(this->kailleraSessionManager, &KailleraSessionManager::chatReceived,
             this, &MainWindow::on_Kaillera_ChatReceived);
+    connect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
+            this, &MainWindow::on_Kaillera_ChatReceived);
     connect(this->kailleraSessionManager, &KailleraSessionManager::playerDropped,
             this, &MainWindow::on_Kaillera_PlayerDropped);
     connect(this->kailleraSessionManager, &KailleraSessionManager::gameEnded,
@@ -2553,6 +2556,8 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
     // Guard: closeEvent may have already cleaned up if the main window was closed
     if (this->kailleraSessionManager != nullptr)
     {
+        disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
+                   this, &MainWindow::on_Kaillera_ChatReceived);
         delete this->kailleraSessionManager;
         this->kailleraSessionManager = nullptr;
         CoreShutdownKaillera();
