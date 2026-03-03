@@ -15,6 +15,7 @@
 #include <QDialog>
 #include <QSpinBox>
 #include <QCheckBox>
+#include <QLineEdit>
 
 class KailleraOptionsDialog : public QDialog
 {
@@ -31,6 +32,8 @@ private:
     QSpinBox* m_maxPing = nullptr;
     QCheckBox* m_flashOnJoin = nullptr;
     QCheckBox* m_beepOnJoin = nullptr;
+    QLineEdit* m_joinMsgHost = nullptr;
+    QLineEdit* m_joinMsgJoin = nullptr;
 };
 
 #endif // _WIN32
