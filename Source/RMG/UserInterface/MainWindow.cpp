@@ -23,7 +23,9 @@
 #include "Dialog/Netplay/CreateNetplaySessionDialog.hpp"
 #include "Dialog/Netplay/NetplaySessionDialog.hpp"
 #endif // NETPLAY
+#ifdef _WIN32
 #include "KailleraUIBridge.hpp"
+#endif
 #include "UserInterface/EventFilter.hpp"
 #include "Utilities/QtKeyToSdl3Key.hpp"
 #include "Utilities/QtMessageBox.hpp"
@@ -2570,10 +2572,12 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
             this, &MainWindow::on_Kaillera_GameStarted);
     connect(this->kailleraSessionManager, &KailleraSessionManager::chatReceived,
             this, &MainWindow::on_Kaillera_ChatReceived);
+#ifdef _WIN32
     connect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
             this, &MainWindow::on_Kaillera_ChatReceived);
     connect(&KailleraUIBridge::instance(), &KailleraUIBridge::recordingFileClosed,
             this, &MainWindow::on_Kaillera_RecordingFileClosed);
+#endif
     connect(this->kailleraSessionManager, &KailleraSessionManager::playerDropped,
             this, &MainWindow::on_Kaillera_PlayerDropped);
     connect(this->kailleraSessionManager, &KailleraSessionManager::gameEnded,
@@ -2595,10 +2599,12 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
     // Guard: closeEvent may have already cleaned up if the main window was closed
     if (this->kailleraSessionManager != nullptr)
     {
+#ifdef _WIN32
         disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
                    this, &MainWindow::on_Kaillera_ChatReceived);
         disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::recordingFileClosed,
                    this, &MainWindow::on_Kaillera_RecordingFileClosed);
+#endif
         delete this->kailleraSessionManager;
         this->kailleraSessionManager = nullptr;
         CoreShutdownKaillera();
