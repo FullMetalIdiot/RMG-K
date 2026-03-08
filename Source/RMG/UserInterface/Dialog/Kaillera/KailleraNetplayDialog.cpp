@@ -45,6 +45,7 @@
 #include <QFrame>
 #include <QEvent>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QStringList>
@@ -117,6 +118,7 @@ public:
         {
             m_popup = new QFrame(this, Qt::Popup | Qt::FramelessWindowHint);
             m_popup->setObjectName("KailleraSearchPopup");
+            m_popup->installEventFilter(this);
             auto* popupLayout = new QVBoxLayout(m_popup);
             popupLayout->setContentsMargins(8, 8, 8, 8);
             popupLayout->setSpacing(6);
@@ -175,6 +177,40 @@ public:
         {
             m_popup->hide();
         }
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (watched == m_popup && event->type() == QEvent::Hide && QApplication::mouseButtons() != Qt::NoButton)
+        {
+            m_suppressPopupUntilMouseRelease = true;
+        }
+
+        return QComboBox::eventFilter(watched, event);
+    }
+
+    void mousePressEvent(QMouseEvent* event) override
+    {
+        if (m_suppressPopupUntilMouseRelease)
+        {
+            event->accept();
+            return;
+        }
+
+        QComboBox::mousePressEvent(event);
+    }
+
+    void mouseReleaseEvent(QMouseEvent* event) override
+    {
+        if (m_suppressPopupUntilMouseRelease)
+        {
+            m_suppressPopupUntilMouseRelease = false;
+            event->accept();
+            return;
+        }
+
+        QComboBox::mouseReleaseEvent(event);
     }
 
 private:
@@ -236,6 +272,7 @@ private:
     QFrame* m_popup = nullptr;
     QLineEdit* m_searchEdit = nullptr;
     QListWidget* m_listWidget = nullptr;
+    bool m_suppressPopupUntilMouseRelease = false;
 };
 
 class FloatingCornerButtonFilter final : public QObject
@@ -290,6 +327,194 @@ static void attachFloatingCornerButton(QWidget* container, QWidget* button, int 
 
     container->installEventFilter(
         new FloatingCornerButtonFilter(container, button, rightMargin, bottomMargin));
+}
+
+static QString buildLauncherStyleSheet(const QString& theme)
+{
+    const bool modern = (theme == "Modern");
+    const bool fusionLike = (theme == "Fusion" || theme == "Fusion Warm" || theme == "Fusion Dark");
+    if (!modern && !fusionLike)
+    {
+        return QString();
+    }
+
+    const QString paneRadius = modern ? "10px" : "2px";
+    const QString tabRadius = modern ? "8px" : "0px";
+    const QString controlRadius = modern ? "7px" : "2px";
+    const QString fabRadius = modern ? "23px" : "6px";
+    const QString dividerColor = modern ? "palette(mid)" : "palette(dark)";
+    const QString tabMargin = modern ? "0px" : "2px";
+    const QString tabWeight = modern ? "600" : "500";
+    const QString tabBarLeftOffset = modern ? "8px" : "0px";
+    const QString comboDropWidth = modern ? "24px" : "32px";
+    const QString comboDropRadius = modern ? controlRadius : "0px";
+    const QString comboDropBackground = modern ? "transparent" : "palette(button)";
+    const bool darkTheme = QApplication::palette().window().color().value() < 128;
+    const QString comboArrowIcon = QString(":/icons/%1/svg/arrow-down-s-line.svg")
+        .arg(darkTheme ? "white" : "black");
+
+    return QString(
+        "QDialog#KailleraLauncherDialog {"
+        "  background-color: palette(window);"
+        "}"
+        "QWidget#KailleraPane, QWidget#KailleraPaneGameList {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: %1;"
+        "  background-color: palette(base);"
+        "}"
+        "QLabel#KailleraFieldLabel {"
+        "  color: palette(text);"
+        "  font-weight: 600;"
+        "}"
+        "QTabWidget#KailleraLauncherTabs::pane {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: %1;"
+        "  background-color: palette(base);"
+        "  top: -1px;"
+        "}"
+        "QTabWidget#KailleraLauncherTabs::tab-bar {"
+        "  left: %2;"
+        "}"
+        "QTabWidget#KailleraLauncherTabs QTabBar::tab {"
+        "  background-color: palette(window);"
+        "  border: 1px solid palette(mid);"
+        "  border-bottom: none;"
+        "  border-top-left-radius: %3;"
+        "  border-top-right-radius: %3;"
+        "  padding: 7px 14px;"
+        "  margin-right: %4;"
+        "}"
+        "QTabWidget#KailleraLauncherTabs QTabBar::tab:selected {"
+        "  background-color: palette(base);"
+        "  font-weight: %5;"
+        "}"
+        "QLineEdit#KailleraInput, QComboBox#KailleraInputCombo {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: %6;"
+        "  background-color: palette(base);"
+        "  padding: 5px 8px;"
+        "  min-height: 24px;"
+        "}"
+        "QLineEdit#KailleraInput:focus, QComboBox#KailleraInputCombo:focus {"
+        "  border-color: palette(highlight);"
+        "}"
+        "QComboBox#KailleraInputCombo::drop-down {"
+        "  subcontrol-origin: padding;"
+        "  subcontrol-position: top right;"
+        "  width: %7;"
+        "  border: none;"
+        "  border-left: 1px solid palette(mid);"
+        "  border-top-right-radius: %8;"
+        "  border-bottom-right-radius: %8;"
+        "  background-color: %9;"
+        "  margin: 1px;"
+        "}"
+        "QComboBox#KailleraInputCombo::down-arrow {"
+        "  image: url(%10);"
+        "  width: 10px;"
+        "  height: 10px;"
+        "}"
+        "QComboBox#KailleraInputCombo QAbstractItemView {"
+        "  border: 1px solid palette(mid);"
+        "  background-color: palette(base);"
+        "  selection-background-color: palette(highlight);"
+        "  selection-color: palette(highlighted-text);"
+        "  outline: none;"
+        "  padding: 0px;"
+        "  margin: 0px;"
+        "}"
+        "QComboBox#KailleraInputCombo QAbstractItemView::item {"
+        "  padding: 4px 8px;"
+        "  margin: 0px;"
+        "}"
+        "QFrame#KailleraSearchPopup {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: %1;"
+        "  background-color: palette(base);"
+        "}"
+        "QTextBrowser#KailleraSurface, QTableWidget#KailleraSurface {"
+        "  border: none;"
+        "  background: transparent;"
+        "}"
+        "QTableWidget#KailleraSurface {"
+        "  gridline-color: transparent;"
+        "  alternate-background-color: palette(alternate-base);"
+        "  selection-background-color: transparent;"
+        "  selection-color: palette(text);"
+        "}"
+        "QTableWidget#KailleraSurface::item:selected {"
+        "  background: transparent;"
+        "  color: palette(text);"
+        "}"
+        "QHeaderView::section {"
+        "  background-color: palette(window);"
+        "  border: none;"
+        "  border-bottom: 1px solid palette(mid);"
+        "  border-left: 1px solid palette(mid);"
+        "  padding: 6px 8px;"
+        "  font-weight: 600;"
+        "}"
+        "QHeaderView::section:first {"
+        "  border-left: none;"
+        "}"
+        "QPushButton#KailleraPrimaryButton {"
+        "  border: 1px solid #0066b4;"
+        "  border-radius: %6;"
+        "  min-height: 24px;"
+        "  padding: 4px 12px;"
+        "  font-weight: 700;"
+        "  color: white;"
+        "  background-color: #0078D7;"
+        "}"
+        "QPushButton#KailleraPrimaryButton:hover {"
+        "  background-color: #1584dd;"
+        "}"
+        "QPushButton#KailleraPrimaryButton:pressed {"
+        "  background-color: #0063b1;"
+        "}"
+        "QPushButton#KailleraSecondaryButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: %6;"
+        "  min-height: 24px;"
+        "  padding: 4px 12px;"
+        "  background-color: palette(button);"
+        "}"
+        "QPushButton#KailleraSecondaryButton:hover {"
+        "  background-color: palette(light);"
+        "}"
+        "QPushButton#KailleraSecondaryButton:pressed {"
+        "  background-color: palette(midlight);"
+        "}"
+        "QPushButton#KailleraFabButton {"
+        "  border: 1px solid #005a9e;"
+        "  border-radius: %11;"
+        "  padding: 0px;"
+        "  background-color: #0078D7;"
+        "  color: white;"
+        "}"
+        "QPushButton#KailleraFabButton:hover {"
+        "  background-color: #1c88dc;"
+        "}"
+        "QPushButton#KailleraFabButton:pressed {"
+        "  border-color: #004f8b;"
+        "  background-color: #005a9e;"
+        "}"
+        "QFrame#KailleraDivider {"
+        "  background-color: %12;"
+        "  max-height: 1px;"
+        "}").arg(
+            paneRadius,
+            tabBarLeftOffset,
+            tabRadius,
+            tabMargin,
+            tabWeight,
+            controlRadius,
+            comboDropWidth,
+            comboDropRadius,
+            comboDropBackground,
+            comboArrowIcon,
+            fabRadius,
+            dividerColor);
 }
 
 KailleraNetplayDialog::KailleraNetplayDialog(QWidget* parent)
@@ -347,24 +572,35 @@ KailleraNetplayDialog::~KailleraNetplayDialog()
 
 void KailleraNetplayDialog::setupUI()
 {
+    setObjectName("KailleraLauncherDialog");
     setWindowTitle("RMG-K Netplay");
     setMinimumSize(520, 480);
     resize(580, 530);
 
-    setStyleSheet("QTableWidget::item:selected { background-color: #0078D7; color: white; }");
+    const QString theme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+    setStyleSheet(buildLauncherStyleSheet(theme));
 
     auto* mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(12, 12, 12, 12);
+    mainLayout->setSpacing(12);
 
-    // User settings row (shared across all modes)
-    auto* settingsLayout = new QHBoxLayout();
-    settingsLayout->addWidget(new QLabel("Username:", this));
-    m_usernameEdit = new QLineEdit(this);
+    auto* profilePane = new QWidget(this);
+    profilePane->setObjectName("KailleraPane");
+    auto* settingsLayout = new QHBoxLayout(profilePane);
+    settingsLayout->setContentsMargins(12, 10, 12, 10);
+    settingsLayout->setSpacing(10);
+    auto* usernameLabel = new QLabel("Username:", profilePane);
+    usernameLabel->setObjectName("KailleraFieldLabel");
+    settingsLayout->addWidget(usernameLabel);
+    m_usernameEdit = new QLineEdit(profilePane);
+    m_usernameEdit->setObjectName("KailleraInput");
     m_usernameEdit->setMaxLength(31);
     settingsLayout->addWidget(m_usernameEdit);
-    mainLayout->addLayout(settingsLayout);
+    mainLayout->addWidget(profilePane);
 
     // Mode tabs
     m_tabWidget = new QTabWidget(this);
+    m_tabWidget->setObjectName("KailleraLauncherTabs");
     m_tabWidget->addTab(createServerTab(), "Server");
     m_tabWidget->addTab(createP2PTab(), "Peer to Peer");
     m_tabWidget->addTab(createPlaybackTab(), "Playback");
@@ -376,14 +612,18 @@ QWidget* KailleraNetplayDialog::createServerTab()
 {
     auto* tab = new QWidget();
     auto* layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
 
     // Server list table
     auto* tablePane = new QWidget(tab);
+    tablePane->setObjectName("KailleraPaneGameList");
     auto* tablePaneLayout = new QVBoxLayout(tablePane);
     tablePaneLayout->setContentsMargins(0, 0, 0, 0);
     tablePaneLayout->setSpacing(0);
 
     m_serverTable = new QTableWidget(0, 5, tablePane);
+    m_serverTable->setObjectName("KailleraSurface");
     m_serverTable->setHorizontalHeaderLabels({"*", "Name", "Players", "Ping", "IP"});
     m_serverTable->verticalHeader()->setVisible(false);
     m_serverTable->setShowGrid(false);
@@ -420,38 +660,46 @@ QWidget* KailleraNetplayDialog::createServerTab()
     tablePaneLayout->addWidget(m_serverTable);
 
     m_btnAdd = new QPushButton(tablePane);
+    m_btnAdd->setObjectName("KailleraFabButton");
     m_btnAdd->setToolTip("Add a custom server");
-    m_btnAdd->setText("");
-    m_btnAdd->setIcon(QIcon(":/icons/white/svg/add-line.svg"));
+    const QString theme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+    const bool useLauncherSkin =
+        (theme == "Modern" || theme == "Fusion" || theme == "Fusion Warm" || theme == "Fusion Dark");
+    if (useLauncherSkin)
+    {
+        m_btnAdd->setText("");
+        m_btnAdd->setIcon(QIcon(":/icons/white/svg/add-line.svg"));
+    }
+    else
+    {
+        QFont addFont = m_btnAdd->font();
+        addFont.setPointSize(addFont.pointSize() + 6);
+        addFont.setBold(true);
+        m_btnAdd->setFont(addFont);
+        m_btnAdd->setText("+");
+        m_btnAdd->setIcon(QIcon());
+    }
     m_btnAdd->setIconSize(QSize(22, 22));
     m_btnAdd->setCursor(Qt::PointingHandCursor);
     m_btnAdd->setFixedSize(46, 46);
-    m_btnAdd->setStyleSheet(
-        "QPushButton {"
-        "  border: 1px solid #005a9e;"
-        "  border-radius: 23px;"
-        "  padding: 0px;"
-        "  background-color: #0078D7;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #1c88dc;"
-        "}"
-        "QPushButton:pressed {"
-        "  border-color: #004f8b;"
-        "  background-color: #005a9e;"
-        "}");
     connect(m_btnAdd, &QPushButton::clicked, this, &KailleraNetplayDialog::onAddServer);
-    attachFloatingCornerButton(tablePane, m_btnAdd, 14, 14);
+    attachFloatingCornerButton(tablePane, m_btnAdd, 20, 14);
 
     layout->addWidget(tablePane, 1);
 
 
     // Bottom action row
     auto* btnLayout = new QHBoxLayout();
+    btnLayout->setContentsMargins(0, 0, 0, 0);
+    btnLayout->setSpacing(10);
     m_btnWaitingGames = new QPushButton("Waiting Games", tab);
+    m_btnWaitingGames->setObjectName("KailleraSecondaryButton");
     m_btnConnect = new QPushButton("Connect", tab);
+    m_btnConnect->setObjectName("KailleraPrimaryButton");
     auto* frameDelayLabel = new QLabel("Frame Delay:", tab);
+    frameDelayLabel->setObjectName("KailleraFieldLabel");
     m_frameDelayCombo = new QComboBox(tab);
+    m_frameDelayCombo->setObjectName("KailleraInputCombo");
     m_frameDelayCombo->addItem("Auto");
     m_frameDelayCombo->addItem("1 frame (8ms)");
     m_frameDelayCombo->addItem("2 frames (24ms)");
@@ -483,19 +731,31 @@ QWidget* KailleraNetplayDialog::createP2PTab()
 {
     auto* tab = new QWidget();
     auto* layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
 
     // Host area
-    auto* hostLayout = new QVBoxLayout();
-    hostLayout->setSpacing(10);
-    hostLayout->addWidget(new QLabel("Host", tab));
+    auto* hostPane = new QWidget(tab);
+    hostPane->setObjectName("KailleraPane");
+    auto* hostLayout = new QVBoxLayout(hostPane);
+    hostLayout->setContentsMargins(12, 10, 12, 12);
+    hostLayout->setSpacing(0);
+
+    auto* hostBody = new QWidget(hostPane);
+    auto* hostBodyLayout = new QVBoxLayout(hostBody);
+    hostBodyLayout->setContentsMargins(0, 0, 0, 0);
+    hostBodyLayout->setSpacing(10);
 
     // Game picker
     auto* gameLayout = new QHBoxLayout();
-    gameLayout->addWidget(new QLabel("ROM:", tab));
-    m_p2pGameCombo = new SearchableComboBox(tab);
+    auto* gameLabel = new QLabel("ROM:", hostBody);
+    gameLabel->setObjectName("KailleraFieldLabel");
+    gameLayout->addWidget(gameLabel);
+    m_p2pGameCombo = new SearchableComboBox(hostBody);
+    m_p2pGameCombo->setObjectName("KailleraInputCombo");
     m_p2pGameCombo->setToolTip("Choose the ROM to host");
     gameLayout->addWidget(m_p2pGameCombo, 1);
-    hostLayout->addLayout(gameLayout);
+    hostBodyLayout->addLayout(gameLayout);
 
     QStringList gameNames;
     if (infos.gameList)
@@ -519,57 +779,77 @@ QWidget* KailleraNetplayDialog::createP2PTab()
 
     // Host port + Host button
     auto* hostBtnLayout = new QHBoxLayout();
-    hostBtnLayout->addWidget(new QLabel("Host port:", tab));
-    m_p2pPortEdit = new QLineEdit(tab);
+    auto* hostPortLabel = new QLabel("Host port:", hostBody);
+    hostPortLabel->setObjectName("KailleraFieldLabel");
+    hostBtnLayout->addWidget(hostPortLabel);
+    m_p2pPortEdit = new QLineEdit(hostBody);
+    m_p2pPortEdit->setObjectName("KailleraInput");
     m_p2pPortEdit->setText("27886");
     m_p2pPortEdit->setMaximumWidth(80);
     hostBtnLayout->addWidget(m_p2pPortEdit);
     hostBtnLayout->addStretch();
-    m_btnP2PHost = new QPushButton("Host", tab);
+    m_btnP2PHost = new QPushButton("Host", hostBody);
+    m_btnP2PHost->setObjectName("KailleraPrimaryButton");
     connect(m_btnP2PHost, &QPushButton::clicked, this, &KailleraNetplayDialog::onP2PHost);
     hostBtnLayout->addWidget(m_btnP2PHost);
-    hostLayout->addLayout(hostBtnLayout);
+    hostBodyLayout->addLayout(hostBtnLayout);
+    hostLayout->addWidget(hostBody);
 
-    layout->addLayout(hostLayout);
+    layout->addWidget(hostPane);
 
     auto* divider = new QFrame(tab);
+    divider->setObjectName("KailleraDivider");
     divider->setFrameShape(QFrame::HLine);
     divider->setFrameShadow(QFrame::Plain);
     layout->addWidget(divider);
 
     // Connect area
-    auto* connectLayout = new QVBoxLayout();
-    connectLayout->setSpacing(10);
-    connectLayout->addWidget(new QLabel("Connect", tab));
+    auto* connectPane = new QWidget(tab);
+    connectPane->setObjectName("KailleraPane");
+    auto* connectLayout = new QVBoxLayout(connectPane);
+    connectLayout->setContentsMargins(12, 10, 12, 12);
+    connectLayout->setSpacing(0);
+
+    auto* connectBody = new QWidget(connectPane);
+    auto* connectBodyLayout = new QVBoxLayout(connectBody);
+    connectBodyLayout->setContentsMargins(0, 0, 0, 0);
+    connectBodyLayout->setSpacing(10);
 
     // Top row: IP/Code field + Connect + Paste & Go
     auto* addrLayout = new QHBoxLayout();
-    addrLayout->addWidget(new QLabel("IP/Code:", tab));
-    m_p2pHostEdit = new QLineEdit(tab);
+    auto* addrLabel = new QLabel("IP/Code:", connectBody);
+    addrLabel->setObjectName("KailleraFieldLabel");
+    addrLayout->addWidget(addrLabel);
+    m_p2pHostEdit = new QLineEdit(connectBody);
+    m_p2pHostEdit->setObjectName("KailleraInput");
     m_p2pHostEdit->setPlaceholderText("Connect code or ip:port");
     addrLayout->addWidget(m_p2pHostEdit, 1);
-    m_btnP2PJoin = new QPushButton("Connect", tab);
+    m_btnP2PJoin = new QPushButton("Connect", connectBody);
+    m_btnP2PJoin->setObjectName("KailleraPrimaryButton");
     connect(m_btnP2PJoin, &QPushButton::clicked, this, &KailleraNetplayDialog::onP2PJoin);
     addrLayout->addWidget(m_btnP2PJoin);
-    m_btnP2PPasteGo = new QPushButton("Paste && Go", tab);
+    m_btnP2PPasteGo = new QPushButton("Paste && Go", connectBody);
+    m_btnP2PPasteGo->setObjectName("KailleraSecondaryButton");
     connect(m_btnP2PPasteGo, &QPushButton::clicked, this, &KailleraNetplayDialog::onP2PPasteAndGo);
     addrLayout->addWidget(m_btnP2PPasteGo);
-    connectLayout->addLayout(addrLayout);
+    connectBodyLayout->addLayout(addrLayout);
 
     // Stored list + waiting games button
     auto* storedAreaLayout = new QHBoxLayout();
     storedAreaLayout->setSpacing(12);
 
     auto* storedBtnLayout = new QVBoxLayout();
-    m_btnP2PWaitingGames = new QPushButton("Waiting\nGames", tab);
+    m_btnP2PWaitingGames = new QPushButton("Waiting\nGames", connectBody);
+    m_btnP2PWaitingGames->setObjectName("KailleraSecondaryButton");
     m_btnP2PWaitingGames->setFixedWidth(88);
     connect(m_btnP2PWaitingGames, &QPushButton::clicked, this, &KailleraNetplayDialog::onP2PWaitingGames);
-    storedBtnLayout->addWidget(m_btnP2PWaitingGames);
     storedBtnLayout->addStretch();
+    storedBtnLayout->addWidget(m_btnP2PWaitingGames);
     storedAreaLayout->addLayout(storedBtnLayout);
 
     auto* storedRightLayout = new QVBoxLayout();
-    m_p2pStoredTable = new QTableWidget(0, 3, tab);
+    m_p2pStoredTable = new QTableWidget(0, 3, connectBody);
+    m_p2pStoredTable->setObjectName("KailleraSurface");
     m_p2pStoredTable->setHorizontalHeaderLabels({"*", "Name", "IP / Code"});
     m_p2pStoredTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
     m_p2pStoredTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
@@ -585,8 +865,9 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     storedRightLayout->addWidget(m_p2pStoredTable, 1);
     storedAreaLayout->addLayout(storedRightLayout, 1);
 
-    connectLayout->addLayout(storedAreaLayout, 1);
-    layout->addLayout(connectLayout, 1);
+    connectBodyLayout->addLayout(storedAreaLayout, 1);
+    connectLayout->addWidget(connectBody);
+    layout->addWidget(connectPane, 1);
 
     return tab;
 }
@@ -595,9 +876,18 @@ QWidget* KailleraNetplayDialog::createPlaybackTab()
 {
     auto* tab = new QWidget();
     auto* layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(10);
 
     // Recordings table
-    m_playbackTable = new QTableWidget(0, 6, tab);
+    auto* playbackPane = new QWidget(tab);
+    playbackPane->setObjectName("KailleraPaneGameList");
+    auto* playbackPaneLayout = new QVBoxLayout(playbackPane);
+    playbackPaneLayout->setContentsMargins(0, 0, 0, 0);
+    playbackPaneLayout->setSpacing(0);
+
+    m_playbackTable = new QTableWidget(0, 6, playbackPane);
+    m_playbackTable->setObjectName("KailleraSurface");
     m_playbackTable->setHorizontalHeaderLabels({"Date", "Players", "Game", "Duration", "Size", "Filename"});
     m_playbackTable->horizontalHeader()->setStretchLastSection(true);
     m_playbackTable->verticalHeader()->setVisible(false);
@@ -613,15 +903,25 @@ QWidget* KailleraNetplayDialog::createPlaybackTab()
     m_playbackTable->setColumnWidth(3, 60);
     m_playbackTable->setColumnWidth(4, 60);
     connect(m_playbackTable, &QTableWidget::cellDoubleClicked, this, &KailleraNetplayDialog::onPlaybackDoubleClicked);
-    layout->addWidget(m_playbackTable);
+    playbackPaneLayout->addWidget(m_playbackTable);
+    layout->addWidget(playbackPane, 1);
 
     // Buttons
-    auto* btnLayout = new QHBoxLayout();
-    m_btnPlay = new QPushButton("Play", tab);
-    m_btnStop = new QPushButton("Stop", tab);
-    m_btnPBDelete = new QPushButton("Delete", tab);
-    m_btnPBRefresh = new QPushButton("Refresh", tab);
-    m_btnOpenFolder = new QPushButton("Open Folder", tab);
+    auto* footerPane = new QWidget(tab);
+    footerPane->setObjectName("KailleraPane");
+    auto* btnLayout = new QHBoxLayout(footerPane);
+    btnLayout->setContentsMargins(12, 10, 12, 10);
+    btnLayout->setSpacing(10);
+    m_btnPlay = new QPushButton("Play", footerPane);
+    m_btnPlay->setObjectName("KailleraPrimaryButton");
+    m_btnStop = new QPushButton("Stop", footerPane);
+    m_btnStop->setObjectName("KailleraSecondaryButton");
+    m_btnPBDelete = new QPushButton("Delete", footerPane);
+    m_btnPBDelete->setObjectName("KailleraSecondaryButton");
+    m_btnPBRefresh = new QPushButton("Refresh", footerPane);
+    m_btnPBRefresh->setObjectName("KailleraSecondaryButton");
+    m_btnOpenFolder = new QPushButton("Open Folder", footerPane);
+    m_btnOpenFolder->setObjectName("KailleraSecondaryButton");
 
     connect(m_btnPlay, &QPushButton::clicked, this, &KailleraNetplayDialog::onPlaybackPlay);
     connect(m_btnStop, &QPushButton::clicked, this, &KailleraNetplayDialog::onPlaybackStop);
@@ -635,7 +935,7 @@ QWidget* KailleraNetplayDialog::createPlaybackTab()
     btnLayout->addWidget(m_btnPBRefresh);
     btnLayout->addStretch();
     btnLayout->addWidget(m_btnOpenFolder);
-    layout->addLayout(btnLayout);
+    layout->addWidget(footerPane);
 
     // Populate on creation
     populatePlaybackList();

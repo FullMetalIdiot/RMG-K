@@ -171,7 +171,7 @@ static l_Setting get_setting(SettingsID settingId)
         setting = {SETTING_SECTION_GUI, "StatusBar", true};
         break;
     case SettingsID::GUI_Theme:
-        setting = {SETTING_SECTION_GUI, "Theme", std::string("Native")};
+        setting = {SETTING_SECTION_GUI, "Theme", std::string("Modern")};
         break;
     case SettingsID::GUI_IconTheme:
         setting = {SETTING_SECTION_GUI, "IconTheme", std::string("Automatic")};

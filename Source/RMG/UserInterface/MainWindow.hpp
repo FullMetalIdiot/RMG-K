@@ -146,6 +146,7 @@ class MainWindow : public QMainWindow, private Ui::MainWindow
 
     void configureUI(QApplication* app, bool showUI);
     void configureTheme(QApplication* app);
+    void reapplyTheme(void);
 
     QString getWindowTitle(void);
 

@@ -69,12 +69,22 @@
                   <widget class="QComboBox" name="themeComboBox">
                    <item>
                     <property name="text">
+                     <string>Modern</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
                      <string>Native</string>
                     </property>
                    </item>
                    <item>
                     <property name="text">
                      <string>Fusion</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Fusion Warm</string>
                     </property>
                    </item>
                    <item>
@@ -176,7 +186,7 @@
                     <number>1</number>
                    </property>
                    <property name="text">
-                    <string>Changes will be applied on next application run</string>
+                    <string>Theme changes apply immediately</string>
                    </property>
                    <property name="textFormat">
                     <enum>Qt::TextFormat::PlainText</enum>
