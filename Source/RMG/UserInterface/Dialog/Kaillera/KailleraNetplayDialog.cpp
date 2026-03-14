@@ -600,8 +600,11 @@ static QString buildLauncherStyleSheet(const QString& theme)
         "  font-size: 15px;"
         "}"
         "QTabWidget#KailleraLauncherTabs::pane {"
-        "  border: 1px solid palette(mid);"
-        "  border-radius: %1;"
+        "  border-top: 1px solid palette(mid);"
+        "  border-left: none;"
+        "  border-right: none;"
+        "  border-bottom: none;"
+        "  border-radius: 0px;"
         "  background-color: palette(base);"
         "  top: -1px;"
         "}"
@@ -769,7 +772,7 @@ static QString buildLauncherStyleSheet(const QString& theme)
             "QPushButton#KailleraFabButton:pressed {"
             "  border-color: #004f8b;"
             "  background-color: #005a9e;"
-            "}").arg(controlRadius, comboDropWidth, comboArrowIcon, fabRadius);
+            "}").arg(controlRadius, fabRadius, comboArrowIcon);
     }
 
     return style;
@@ -839,10 +842,14 @@ void KailleraNetplayDialog::setupUI()
     setStyleSheet(buildLauncherStyleSheet(theme));
 
     auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(12, 12, 12, 12);
+    mainLayout->setContentsMargins(0, 12, 0, 0);
     mainLayout->setSpacing(12);
 
     auto* profilePane = new QWidget(this);
+    auto* profileWrapper = new QWidget(this);
+    auto* profileWrapperLayout = new QVBoxLayout(profileWrapper);
+    profileWrapperLayout->setContentsMargins(12, 0, 12, 0);
+    profileWrapperLayout->setSpacing(0);
     auto* settingsLayout = new QHBoxLayout(profilePane);
     settingsLayout->setContentsMargins(0, 0, 0, 0);
     settingsLayout->setSpacing(10);
@@ -853,7 +860,8 @@ void KailleraNetplayDialog::setupUI()
     m_usernameEdit->setObjectName("KailleraInput");
     m_usernameEdit->setMaxLength(31);
     settingsLayout->addWidget(m_usernameEdit);
-    mainLayout->addWidget(profilePane);
+    profileWrapperLayout->addWidget(profilePane);
+    mainLayout->addWidget(profileWrapper);
 
     // Mode tabs
     m_tabWidget = new LauncherTabWidget(this);
@@ -861,7 +869,7 @@ void KailleraNetplayDialog::setupUI()
     m_tabWidget->addTab(createServerTab(), "Server");
     m_tabWidget->addTab(createP2PTab(), "Peer to Peer");
     connect(m_tabWidget, &QTabWidget::currentChanged, this, &KailleraNetplayDialog::onTabChanged);
-    mainLayout->addWidget(m_tabWidget);
+    mainLayout->addWidget(m_tabWidget, 1);
 }
 
 QWidget* KailleraNetplayDialog::createServerTab()
