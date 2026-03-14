@@ -839,6 +839,7 @@ void KailleraServerBrowserDialog::setupUI()
 
     auto* usersHeader = new QWidget(usersPane);
     usersHeader->setObjectName("KailleraPaneHeader");
+    usersHeader->setMinimumHeight(31);
     auto* usersHeaderLayout = new QHBoxLayout(usersHeader);
     usersHeaderLayout->setContentsMargins(10, 4, 10, 4);
     usersHeaderLayout->setSpacing(6);

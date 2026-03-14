@@ -423,6 +423,41 @@ static bool isFusionFamilyTheme(const QString& theme)
     return theme == "Fusion" || theme == "Fusion Warm" || theme == "Fusion Dark";
 }
 
+static QWidget* createLauncherSectionPane(
+    const QString& theme, QWidget* parent, const QString& title, QVBoxLayout** outLayout)
+{
+    const bool useTitledGroup = (theme == "Modern");
+    QWidget* pane = nullptr;
+    QVBoxLayout* layout = nullptr;
+
+    if (useTitledGroup)
+    {
+        auto* group = new QGroupBox(title, parent);
+        group->setObjectName("KailleraPane");
+        layout = new QVBoxLayout(group);
+        layout->setContentsMargins(12, 12, 12, 12);
+        layout->setSpacing(0);
+        pane = group;
+    }
+    else
+    {
+        auto* widget = new QWidget(parent);
+        layout = new QVBoxLayout(widget);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(6);
+        auto* titleLabel = new QLabel(title, widget);
+        titleLabel->setObjectName("KailleraSectionCaption");
+        layout->addWidget(titleLabel, 0, Qt::AlignLeft);
+        pane = widget;
+    }
+
+    if (outLayout != nullptr)
+    {
+        *outLayout = layout;
+    }
+    return pane;
+}
+
 static void setPaletteRoleForAllGroups(QPalette& palette, QPalette::ColorRole role, const QColor& color)
 {
     palette.setColor(QPalette::Active, role, color);
@@ -550,7 +585,7 @@ static QString buildLauncherStyleSheet(const QString& theme)
         "QDialog#KailleraLauncherDialog {"
         "  background-color: palette(window);"
         "}"
-        "QWidget#KailleraPane, QWidget#KailleraPaneGameList {"
+        "QWidget#KailleraPane, QGroupBox#KailleraPane, QWidget#KailleraPaneGameList {"
         "  border: 1px solid palette(mid);"
         "  border-radius: %1;"
         "  background-color: palette(base);"
@@ -558,6 +593,11 @@ static QString buildLauncherStyleSheet(const QString& theme)
         "QLabel#KailleraFieldLabel {"
         "  color: palette(text);"
         "  font-weight: 600;"
+        "}"
+        "QLabel#KailleraSectionCaption {"
+        "  color: palette(mid);"
+        "  font-weight: 600;"
+        "  font-size: 15px;"
         "}"
         "QTabWidget#KailleraLauncherTabs::pane {"
         "  border: 1px solid palette(mid);"
@@ -641,6 +681,16 @@ static QString buildLauncherStyleSheet(const QString& theme)
     if (modern)
     {
         style += QString(
+            "QGroupBox#KailleraPane {"
+            "  margin-top: 10px;"
+            "  padding-top: 6px;"
+            "}"
+            "QGroupBox#KailleraPane::title {"
+            "  subcontrol-origin: margin;"
+            "  left: 10px;"
+            "  padding: 0 4px;"
+            "  font-weight: 600;"
+            "}"
             "QComboBox#KailleraInputCombo {"
             "  border: 1px solid palette(mid);"
             "  border-radius: %1;"
@@ -793,9 +843,8 @@ void KailleraNetplayDialog::setupUI()
     mainLayout->setSpacing(12);
 
     auto* profilePane = new QWidget(this);
-    profilePane->setObjectName("KailleraPane");
     auto* settingsLayout = new QHBoxLayout(profilePane);
-    settingsLayout->setContentsMargins(12, 10, 12, 10);
+    settingsLayout->setContentsMargins(0, 0, 0, 0);
     settingsLayout->setSpacing(10);
     auto* usernameLabel = new QLabel("Username:", profilePane);
     usernameLabel->setObjectName("KailleraFieldLabel");
@@ -947,12 +996,11 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(10);
 
+    const QString theme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+
     // Host area
-    auto* hostPane = new QWidget(tab);
-    hostPane->setObjectName("KailleraPane");
-    auto* hostLayout = new QVBoxLayout(hostPane);
-    hostLayout->setContentsMargins(12, 10, 12, 12);
-    hostLayout->setSpacing(0);
+    QVBoxLayout* hostLayout = nullptr;
+    auto* hostPane = createLauncherSectionPane(theme, tab, "Host", &hostLayout);
 
     auto* hostBody = new QWidget(hostPane);
     auto* hostBodyLayout = new QVBoxLayout(hostBody);
@@ -1013,18 +1061,18 @@ QWidget* KailleraNetplayDialog::createP2PTab()
 
     layout->addWidget(hostPane);
 
-    auto* divider = new QFrame(tab);
-    divider->setObjectName("KailleraDivider");
-    divider->setFrameShape(QFrame::HLine);
-    divider->setFrameShadow(QFrame::Plain);
-    layout->addWidget(divider);
+    if (theme != "Modern")
+    {
+        auto* divider = new QFrame(tab);
+        divider->setObjectName("KailleraDivider");
+        divider->setFrameShape(QFrame::HLine);
+        divider->setFrameShadow(QFrame::Plain);
+        layout->addWidget(divider);
+    }
 
     // Connect area
-    auto* connectPane = new QWidget(tab);
-    connectPane->setObjectName("KailleraPane");
-    auto* connectLayout = new QVBoxLayout(connectPane);
-    connectLayout->setContentsMargins(12, 10, 12, 12);
-    connectLayout->setSpacing(0);
+    QVBoxLayout* connectLayout = nullptr;
+    auto* connectPane = createLauncherSectionPane(theme, tab, "Connect", &connectLayout);
 
     auto* connectBody = new QWidget(connectPane);
     auto* connectBodyLayout = new QVBoxLayout(connectBody);
@@ -1036,6 +1084,11 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     auto* addrLabel = new QLabel("IP/Code:", connectBody);
     addrLabel->setObjectName("KailleraFieldLabel");
     addrLayout->addWidget(addrLabel);
+    const int p2pLabelWidth = qMax(gameLabel->sizeHint().width(),
+        qMax(hostPortLabel->sizeHint().width(), addrLabel->sizeHint().width()));
+    gameLabel->setFixedWidth(p2pLabelWidth);
+    hostPortLabel->setFixedWidth(p2pLabelWidth);
+    addrLabel->setFixedWidth(p2pLabelWidth);
     m_p2pHostEdit = new QLineEdit(connectBody);
     m_p2pHostEdit->setObjectName("KailleraInput");
     m_p2pHostEdit->setPlaceholderText("Connect code or ip:port");
@@ -1054,20 +1107,9 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     connectBodyLayout->addLayout(addrLayout);
 
     // Stored list + waiting games button
-    auto* storedAreaLayout = new QHBoxLayout();
-    storedAreaLayout->setSpacing(12);
+    auto* storedAreaLayout = new QVBoxLayout();
+    storedAreaLayout->setSpacing(8);
 
-    auto* storedBtnLayout = new QVBoxLayout();
-    m_btnP2PWaitingGames = new QPushButton("Waiting\nGames", connectBody);
-    m_btnP2PWaitingGames->setObjectName("KailleraSecondaryButton");
-    m_btnP2PWaitingGames->setFixedWidth(88);
-    configureLauncherTallButtonMetrics(m_btnP2PWaitingGames);
-    connect(m_btnP2PWaitingGames, &QPushButton::clicked, this, &KailleraNetplayDialog::onP2PWaitingGames);
-    storedBtnLayout->addStretch();
-    storedBtnLayout->addWidget(m_btnP2PWaitingGames);
-    storedAreaLayout->addLayout(storedBtnLayout);
-
-    auto* storedRightLayout = new QVBoxLayout();
     m_p2pStoredTable = new QTableWidget(0, 3, connectBody);
     m_p2pStoredTable->setObjectName("KailleraSurface");
     m_p2pStoredTable->setHorizontalHeaderLabels({"*", "Name", "IP / Code"});
@@ -1083,8 +1125,13 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     m_p2pStoredTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_p2pStoredTable->setItemDelegateForColumn(0, new CenteredIconDelegate(m_p2pStoredTable));
     connect(m_p2pStoredTable, &QTableWidget::cellClicked, this, &KailleraNetplayDialog::onP2PStoredClicked);
-    storedRightLayout->addWidget(m_p2pStoredTable, 1);
-    storedAreaLayout->addLayout(storedRightLayout, 1);
+    storedAreaLayout->addWidget(m_p2pStoredTable, 1);
+
+    m_btnP2PWaitingGames = new QPushButton("Show waiting games", connectBody);
+    m_btnP2PWaitingGames->setObjectName("KailleraSecondaryButton");
+    configureLauncherButtonMetrics(m_btnP2PWaitingGames);
+    connect(m_btnP2PWaitingGames, &QPushButton::clicked, this, &KailleraNetplayDialog::onP2PWaitingGames);
+    storedAreaLayout->addWidget(m_btnP2PWaitingGames, 0, Qt::AlignLeft);
 
     connectBodyLayout->addLayout(storedAreaLayout, 1);
     connectLayout->addWidget(connectBody);

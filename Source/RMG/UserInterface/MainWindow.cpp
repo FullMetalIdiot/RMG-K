@@ -2698,6 +2698,8 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
 #ifdef _WIN32
     connect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
             this, &MainWindow::on_Kaillera_ChatReceived);
+    connect(&KailleraUIBridge::instance(), &KailleraUIBridge::p2pChatReceived,
+            this, &MainWindow::on_Kaillera_ChatReceived);
     connect(&KailleraUIBridge::instance(), &KailleraUIBridge::recordingFileClosed,
             this, &MainWindow::on_Kaillera_RecordingFileClosed);
 #endif
@@ -2724,6 +2726,8 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
     {
 #ifdef _WIN32
         disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
+                   this, &MainWindow::on_Kaillera_ChatReceived);
+        disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::p2pChatReceived,
                    this, &MainWindow::on_Kaillera_ChatReceived);
         disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::recordingFileClosed,
                    this, &MainWindow::on_Kaillera_RecordingFileClosed);
