@@ -700,7 +700,7 @@ void SettingsDialog::loadInterfaceGeneralSettings(void)
     }
 
 #ifdef _WIN32
-    this->themeComboBox->insertItem(1,"Windows Vista");
+    this->themeComboBox->insertItem(2, "Windows Vista");
 #endif
 
     // select currently chosen theme in UI

@@ -23,8 +23,9 @@
 #include "Dialog/Netplay/CreateNetplaySessionDialog.hpp"
 #include "Dialog/Netplay/NetplaySessionDialog.hpp"
 #endif // NETPLAY
-#ifdef _WIN32
+#if defined(NETPLAY) && defined(_WIN32)
 #include "KailleraUIBridge.hpp"
+#include "Dialog/Kaillera/KailleraPlaybackDialog.hpp"
 #endif
 #include "UserInterface/EventFilter.hpp"
 #include "Utilities/QtKeyToSdl3Key.hpp"
@@ -98,9 +99,36 @@
 using namespace UserInterface;
 using namespace Utilities;
 
-#ifdef NETPLAY
 namespace
 {
+QString resolveStyleFactoryKey(const QString& styleName)
+{
+    const QStringList styleKeys = QStyleFactory::keys();
+    for (const QString& styleKey : styleKeys)
+    {
+        if (QString::compare(styleKey, styleName, Qt::CaseInsensitive) == 0)
+        {
+            return styleKey;
+        }
+    }
+
+    return styleName;
+}
+
+QPalette resolveStyleStandardPalette(const QString& styleName, const QPalette& fallbackPalette)
+{
+    QStyle* style = QStyleFactory::create(styleName);
+    if (style == nullptr)
+    {
+        return fallbackPalette;
+    }
+
+    const QPalette palette = style->standardPalette();
+    delete style;
+    return palette;
+}
+
+#ifdef NETPLAY
 constexpr std::chrono::seconds kLocalEchoMaxAge(2);
 constexpr size_t kLocalEchoMaxEntries = 8;
 
@@ -111,8 +139,8 @@ QString NormalizeOsdKailleraChatMessage(QString message)
     message.replace('\n', ' ');
     return message;
 }
-} // namespace
 #endif // NETPLAY
+} // namespace
 
 MainWindow::MainWindow() : QMainWindow(nullptr)
 {
@@ -548,31 +576,50 @@ void MainWindow::configureUI(QApplication* app, bool showUI)
 
 void MainWindow::configureTheme(QApplication* app)
 {
+    static const QString defaultStyleName = resolveStyleFactoryKey(app->style()->objectName());
+    static const QPalette defaultPalette = app->palette();
+    static const QPalette defaultStylePalette = resolveStyleStandardPalette(defaultStyleName, defaultPalette);
+    static const QString defaultStyleSheet = app->styleSheet();
+    static const QString defaultFallbackThemeName = QIcon::themeName();
+
     // we have to retrieve the fallback icon theme
     // before applying the app theme
-    QString fallbackThemeName = QIcon::themeName();
+    QString fallbackThemeName = defaultFallbackThemeName;
 
     // set theme style
     QString fallbackStyleSheet = "QTableView { border: none; color: #0096d3; selection-color: #FFFFFF; selection-background-color: #0096d3; }";
     this->setStyleSheet(fallbackStyleSheet);
 
+    app->setStyleSheet(defaultStyleSheet);
+    app->setPalette(defaultPalette);
+
     // set application theme
     QString theme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
-    if (theme == "Native")
+    if (theme == "Modern" || theme == "Native")
     {
-        // do nothing
+        QStyle* style = QStyleFactory::create(defaultStyleName);
+        if (style != nullptr)
+        {
+            app->setStyle(style);
+        }
+        app->setPalette(defaultPalette);
     }
 #ifdef _WIN32
     else if (theme == "Windows Vista")
     {
         app->setStyle(QStyleFactory::create("WindowsVista"));
+        app->setPalette(app->style()->standardPalette());
     }
 #endif
     else if (theme == "Fusion")
     {
-        app->setPalette(QApplication::style()->standardPalette());
-        app->setStyleSheet(QString());
         app->setStyle(QStyleFactory::create("Fusion"));
+        app->setPalette(app->style()->standardPalette());
+    }
+    else if (theme == "Fusion Warm")
+    {
+        app->setStyle(QStyleFactory::create("Fusion"));
+        app->setPalette(defaultStylePalette);
     }
     else if (theme == "Fusion Dark")
     {
@@ -620,9 +667,8 @@ void MainWindow::configureTheme(QApplication* app)
         themePath += theme;
 
         // use Fusion as a base for the stylesheet
-        app->setPalette(QApplication::style()->standardPalette());
-        app->setStyleSheet(QString());
         app->setStyle(QStyleFactory::create("Fusion"));
+        app->setPalette(app->style()->standardPalette());
 
         // set the stylesheet theme,
         // if the file exists and can be opened
@@ -649,6 +695,30 @@ void MainWindow::configureTheme(QApplication* app)
 
     // fallback for icons we don't provide (i.e standard system icons)
     QIcon::setFallbackThemeName(fallbackThemeName);
+}
+
+void MainWindow::reapplyTheme(void)
+{
+    QApplication* app = qobject_cast<QApplication*>(QCoreApplication::instance());
+    if (app == nullptr)
+    {
+        return;
+    }
+
+    this->configureTheme(app);
+
+    const QWidgetList widgets = QApplication::allWidgets();
+    for (QWidget* widget : widgets)
+    {
+        if (widget == nullptr)
+        {
+            continue;
+        }
+
+        widget->style()->unpolish(widget);
+        widget->style()->polish(widget);
+        widget->update();
+    }
 }
 
 QString MainWindow::getWindowTitle(void)
@@ -1558,6 +1628,7 @@ void MainWindow::connectActionSignals(void)
     connect(this->action_Settings_Settings, &QAction::triggered, this, &MainWindow::on_Action_Settings_Settings);
     connect(this->action_Settings_Plugins, &QAction::triggered, this, &MainWindow::on_Action_Settings_Plugins);
     connect(this->action_Toolbar_Input, &QAction::triggered, this, &MainWindow::on_Action_Settings_Input);
+    connect(this->action_Toolbar_Playback, &QAction::triggered, this, &MainWindow::on_Action_Playback);
 
     connect(this->action_View_Toolbar, &QAction::toggled, this, &MainWindow::on_Action_View_Toolbar);
     connect(this->action_View_StatusBar, &QAction::toggled, this, &MainWindow::on_Action_View_StatusBar);
@@ -2366,10 +2437,37 @@ void MainWindow::on_Action_Settings_Input(void)
     }
 }
 
+void MainWindow::on_Action_Playback(void)
+{
+#if defined(NETPLAY) && defined(_WIN32)
+    // If already open, just bring it to front
+    auto* existing = findChild<KailleraPlaybackDialog*>();
+    if (existing)
+    {
+        existing->raise();
+        existing->activateWindow();
+        return;
+    }
+
+    // Initialize Kaillera if not already initialized
+    if (!CoreInitKaillera())
+    {
+        this->showErrorMessage("Kaillera Error", QString::fromStdString(CoreGetError()));
+        return;
+    }
+
+    auto* dialog = new KailleraPlaybackDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+#endif // NETPLAY && _WIN32
+}
+
 void MainWindow::on_Action_Settings_Settings(void)
 {
     bool isRunning = CoreIsEmulationRunning();
     bool isPaused = CoreIsEmulationPaused();
+    const QString previousTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+    const QString previousIconTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_IconTheme));
 
     if (isRunning && !isPaused)
     {
@@ -2377,7 +2475,17 @@ void MainWindow::on_Action_Settings_Settings(void)
     }
 
     Dialog::SettingsDialog dialog(this);
-    dialog.exec();
+    const int result = dialog.exec();
+
+    if (result == QDialog::Accepted)
+    {
+        const QString currentTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+        const QString currentIconTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_IconTheme));
+        if (currentTheme != previousTheme || currentIconTheme != previousIconTheme)
+        {
+            this->reapplyTheme();
+        }
+    }
 
     // reload UI,
     // because we need to keep Settings -> {type}
@@ -2397,6 +2505,8 @@ void MainWindow::on_Action_Settings_Plugins(void)
 {
     bool isRunning = CoreIsEmulationRunning();
     bool isPaused = CoreIsEmulationPaused();
+    const QString previousTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+    const QString previousIconTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_IconTheme));
 
     if (isRunning && !isPaused)
     {
@@ -2405,7 +2515,17 @@ void MainWindow::on_Action_Settings_Plugins(void)
 
     Dialog::SettingsDialog dialog(this);
     dialog.ShowPluginsTab();
-    dialog.exec();
+    const int result = dialog.exec();
+
+    if (result == QDialog::Accepted)
+    {
+        const QString currentTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+        const QString currentIconTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_IconTheme));
+        if (currentTheme != previousTheme || currentIconTheme != previousIconTheme)
+        {
+            this->reapplyTheme();
+        }
+    }
 
     // reload UI,
     // because we need to keep Settings -> {type}
@@ -2592,6 +2712,8 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
 #ifdef _WIN32
     connect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
             this, &MainWindow::on_Kaillera_ChatReceived);
+    connect(&KailleraUIBridge::instance(), &KailleraUIBridge::p2pChatReceived,
+            this, &MainWindow::on_Kaillera_ChatReceived);
     connect(&KailleraUIBridge::instance(), &KailleraUIBridge::recordingFileClosed,
             this, &MainWindow::on_Kaillera_RecordingFileClosed);
 #endif
@@ -2618,6 +2740,8 @@ void MainWindow::on_Action_Netplay_BrowseSessions(void)
     {
 #ifdef _WIN32
         disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::kailleraGameChatReceived,
+                   this, &MainWindow::on_Kaillera_ChatReceived);
+        disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::p2pChatReceived,
                    this, &MainWindow::on_Kaillera_ChatReceived);
         disconnect(&KailleraUIBridge::instance(), &KailleraUIBridge::recordingFileClosed,
                    this, &MainWindow::on_Kaillera_RecordingFileClosed);
@@ -3207,6 +3331,8 @@ void MainWindow::on_RomBrowser_RomInformation(QString file)
 void MainWindow::on_RomBrowser_EditGameSettings(QString file)
 {
     bool isRefreshingRomList = this->ui_Widget_RomBrowser->IsRefreshingRomList();
+    const QString previousTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+    const QString previousIconTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_IconTheme));
     if (isRefreshingRomList)
     {
         this->ui_Widget_RomBrowser->StopRefreshRomList();
@@ -3214,7 +3340,17 @@ void MainWindow::on_RomBrowser_EditGameSettings(QString file)
 
     Dialog::SettingsDialog dialog(this, file);
     dialog.ShowGameTab();
-    dialog.exec();
+    const int result = dialog.exec();
+
+    if (result == QDialog::Accepted)
+    {
+        const QString currentTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+        const QString currentIconTheme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_IconTheme));
+        if (currentTheme != previousTheme || currentIconTheme != previousIconTheme)
+        {
+            this->reapplyTheme();
+        }
+    }
 
     this->updateActions(false, false);
     this->coreCallBacks->LoadSettings();

@@ -171,7 +171,7 @@ static l_Setting get_setting(SettingsID settingId)
         setting = {SETTING_SECTION_GUI, "StatusBar", true};
         break;
     case SettingsID::GUI_Theme:
-        setting = {SETTING_SECTION_GUI, "Theme", std::string("Native")};
+        setting = {SETTING_SECTION_GUI, "Theme", std::string("Modern")};
         break;
     case SettingsID::GUI_IconTheme:
         setting = {SETTING_SECTION_GUI, "IconTheme", std::string("Automatic")};
@@ -261,6 +261,12 @@ static l_Setting get_setting(SettingsID settingId)
         break;
     case SettingsID::Kaillera_ServerListHosts:
         setting = {SETTING_SECTION_KAILLERA, "ServerListHosts", std::string("")};
+        break;
+    case SettingsID::Kaillera_LiveServerCacheNames:
+        setting = {SETTING_SECTION_KAILLERA, "LiveServerCacheNames", std::string("")};
+        break;
+    case SettingsID::Kaillera_LiveServerCacheHosts:
+        setting = {SETTING_SECTION_KAILLERA, "LiveServerCacheHosts", std::string("")};
         break;
     case SettingsID::Kaillera_BrowserGeometry:
         setting = {SETTING_SECTION_KAILLERA, "BrowserGeometry", std::string("")};

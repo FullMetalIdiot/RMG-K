@@ -15,6 +15,7 @@
 
 #include <RMG-Core/Emulation.hpp>
 #include <RMG-Core/Kaillera.hpp>
+#include <RMG-Core/Settings.hpp>
 
 #include "core/p2p_core.h"
 #include "n02_client.h"
@@ -36,6 +37,183 @@ static const int kSsrvPort = 27887;
 static QString timestamp()
 {
     return QDateTime::currentDateTime().toString("[h:mm AP] ");
+}
+
+static QIcon themedP2PIcon(const QString& iconName)
+{
+    const bool darkTheme = QApplication::palette().window().color().value() < 128;
+    return QIcon(QString(":/icons/%1/svg/%2.svg")
+        .arg(darkTheme ? "white" : "black", iconName));
+}
+
+static QString buildP2PStyleSheet(const QString& theme)
+{
+    if (theme != "Modern")
+    {
+        return QString();
+    }
+
+    const bool darkTheme = QApplication::palette().window().color().value() < 128;
+    const QString comboArrowIcon = QString(":/icons/%1/svg/arrow-down-s-line.svg")
+        .arg(darkTheme ? "white" : "black");
+
+    return QString(
+        "QDialog#KailleraP2PDialog {"
+        "  background-color: palette(window);"
+        "}"
+        "QLabel#KailleraP2PGameBanner {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 10px;"
+        "  background-color: palette(base);"
+        "  padding: 6px 10px;"
+        "  font-weight: 600;"
+        "}"
+        "QTextBrowser#KailleraP2PSurface {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 10px;"
+        "  background-color: palette(base);"
+        "  padding: 6px;"
+        "}"
+        "QLineEdit#KailleraP2PInput {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 7px;"
+        "  background-color: palette(base);"
+        "  padding: 5px 8px;"
+        "  min-height: 24px;"
+        "}"
+        "QLineEdit#KailleraP2PInput:focus {"
+        "  border-color: palette(highlight);"
+        "}"
+        "QComboBox#KailleraP2PCombo {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 7px;"
+        "  background-color: palette(base);"
+        "  padding: 4px 8px;"
+        "  min-height: 24px;"
+        "}"
+        "QComboBox#KailleraP2PCombo:focus {"
+        "  border-color: palette(highlight);"
+        "}"
+        "QComboBox#KailleraP2PCombo::drop-down {"
+        "  subcontrol-origin: padding;"
+        "  subcontrol-position: top right;"
+        "  width: 24px;"
+        "  border: none;"
+        "  border-left: 1px solid palette(mid);"
+        "  border-top-right-radius: 7px;"
+        "  border-bottom-right-radius: 7px;"
+        "  background-color: transparent;"
+        "  margin: 1px;"
+        "}"
+        "QComboBox#KailleraP2PCombo::down-arrow {"
+        "  image: url(%1);"
+        "  width: 10px;"
+        "  height: 10px;"
+        "}"
+        "QComboBox#KailleraP2PCombo QAbstractItemView {"
+        "  border: 1px solid palette(mid);"
+        "  background-color: palette(base);"
+        "  selection-background-color: palette(highlight);"
+        "  selection-color: palette(highlighted-text);"
+        "  outline: none;"
+        "  padding: 0px;"
+        "  margin: 0px;"
+        "}"
+        "QComboBox#KailleraP2PCombo QAbstractItemView::item {"
+        "  padding: 0px 8px;"
+        "  min-height: 18px;"
+        "  margin: 0px;"
+        "}"
+        "QGroupBox#KailleraP2PGroup {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 10px;"
+        "  background-color: palette(base);"
+        "  margin-top: 10px;"
+        "  padding-top: 6px;"
+        "}"
+        "QGroupBox#KailleraP2PGroup::title {"
+        "  subcontrol-origin: margin;"
+        "  left: 10px;"
+        "  padding: 0 4px;"
+        "  font-weight: 600;"
+        "}"
+        "QWidget#KailleraChatComposer {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 7px;"
+        "  background-color: palette(base);"
+        "}"
+        "QLineEdit#KailleraChatComposerInput {"
+        "  border: none;"
+        "  background: transparent;"
+        "  padding: 1px 0px;"
+        "  min-height: 16px;"
+        "}"
+        "QLineEdit#KailleraChatComposerInput:focus {"
+        "  border: none;"
+        "}"
+        "QPushButton#KailleraChatComposerSendButton {"
+        "  border: none;"
+        "  border-radius: 6px;"
+        "  min-width: 20px;"
+        "  min-height: 20px;"
+        "  max-width: 20px;"
+        "  max-height: 20px;"
+        "  padding: 0px;"
+        "  background-color: transparent;"
+        "  color: palette(text);"
+        "  font-size: 15px;"
+        "  font-weight: 900;"
+        "}"
+        "QPushButton#KailleraChatComposerSendButton:hover {"
+        "  border: 1px solid palette(mid);"
+        "  background-color: palette(light);"
+        "}"
+        "QPushButton#KailleraChatComposerSendButton:pressed {"
+        "  border: 1px solid palette(mid);"
+        "  background-color: palette(midlight);"
+        "}"
+        "QPushButton#KailleraP2PPrimaryButton {"
+        "  border: 1px solid #0066b4;"
+        "  border-radius: 7px;"
+        "  min-height: 24px;"
+        "  padding: 4px 12px;"
+        "  font-weight: 700;"
+        "  color: white;"
+        "  background-color: #0078D7;"
+        "}"
+        "QPushButton#KailleraP2PPrimaryButton:hover {"
+        "  background-color: #1584dd;"
+        "}"
+        "QPushButton#KailleraP2PPrimaryButton:pressed,"
+        "QPushButton#KailleraP2PPrimaryButton:checked {"
+        "  background-color: #0063b1;"
+        "}"
+        "QPushButton#KailleraP2PSecondaryButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 7px;"
+        "  min-height: 24px;"
+        "  padding: 4px 12px;"
+        "  background-color: palette(button);"
+        "}"
+        "QPushButton#KailleraP2PSecondaryButton:hover {"
+        "  background-color: palette(light);"
+        "}"
+        "QPushButton#KailleraP2PSecondaryButton:pressed {"
+        "  background-color: palette(midlight);"
+        "}"
+        "QPushButton#KailleraP2PIconButton {"
+        "  border: 1px solid palette(mid);"
+        "  border-radius: 6px;"
+        "  padding: 0px;"
+        "  background-color: palette(button);"
+        "}"
+        "QPushButton#KailleraP2PIconButton:hover {"
+        "  background-color: palette(light);"
+        "}"
+        "QPushButton#KailleraP2PIconButton:pressed {"
+        "  background-color: palette(midlight);"
+        "}"
+    ).arg(comboArrowIcon);
 }
 
 // Check if a string looks like a NAT traversal code rather than an IP address.
@@ -181,43 +359,79 @@ KailleraP2PDialog::~KailleraP2PDialog()
 
 void KailleraP2PDialog::setupUI()
 {
+    setObjectName("KailleraP2PDialog");
     setWindowTitle(m_isHost ? "Hosting P2P" : "P2P Game");
     setMinimumSize(520, 420);
     resize(560, 480);
+
+    const QString theme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
+    setStyleSheet(buildP2PStyleSheet(theme));
 
     auto* mainLayout = new QVBoxLayout(this);
 
     // Game label at top
     m_gameLabel = new QLabel(this);
+    m_gameLabel->setObjectName("KailleraP2PGameBanner");
     m_gameLabel->setText("Game: " + m_gameName);
     m_gameLabel->setFrameStyle(QFrame::Box | QFrame::Sunken);
     mainLayout->addWidget(m_gameLabel);
 
     // Chat / status area (takes most space)
     m_chat = new QTextBrowser(this);
+    m_chat->setObjectName("KailleraP2PSurface");
     m_chat->setOpenExternalLinks(true);
     mainLayout->addWidget(m_chat, 1);
 
     // Chat input row
     auto* chatInputLayout = new QHBoxLayout();
-    m_chatInput = new QLineEdit(this);
-    m_btnChat = new QPushButton("Chat", this);
-    chatInputLayout->addWidget(m_chatInput, 1);
-    chatInputLayout->addWidget(m_btnChat);
+    chatInputLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto* chatComposer = new QWidget(this);
+    chatComposer->setObjectName("KailleraChatComposer");
+    chatComposer->setFixedHeight(24);
+    auto* chatComposerLayout = new QHBoxLayout(chatComposer);
+    chatComposerLayout->setContentsMargins(10, 2, 4, 2);
+    chatComposerLayout->setSpacing(4);
+
+    m_chatInput = new QLineEdit(chatComposer);
+    m_chatInput->setPlaceholderText("Type a message...");
+    m_chatInput->setClearButtonEnabled(true);
+    m_chatInput->setObjectName("KailleraChatComposerInput");
+    m_chatInput->setFrame(false);
+
+    m_btnChat = new QPushButton(chatComposer);
+    m_btnChat->setObjectName("KailleraChatComposerSendButton");
+    m_btnChat->setToolTip("Send message");
+    m_btnChat->setText("");
+    m_btnChat->setIcon(themedP2PIcon("play-line"));
+    m_btnChat->setIconSize(QSize(13, 13));
+
+    chatComposerLayout->addWidget(m_chatInput);
+    chatComposerLayout->addWidget(m_btnChat, 0, Qt::AlignVCenter);
+    chatInputLayout->addWidget(chatComposer, 1);
     mainLayout->addLayout(chatInputLayout);
 
     // Button row: Ready, Drop Game, Record game checkbox  |  Host group
     auto* bottomLayout = new QHBoxLayout();
+    bottomLayout->setSpacing(12);
+    bottomLayout->setAlignment(Qt::AlignTop);
 
     // Left side: buttons
-    auto* leftLayout = new QVBoxLayout();
+    auto* leftWidget = new QWidget(this);
+    auto* leftLayout = new QVBoxLayout(leftWidget);
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(0);
 
     auto* btnRow = new QHBoxLayout();
+    btnRow->setContentsMargins(0, 0, 0, 0);
+    btnRow->setSpacing(8);
     m_btnReady = new QPushButton("Ready", this);
+    m_btnReady->setCheckable(true);
+    m_btnReady->setObjectName("KailleraP2PPrimaryButton");
     m_btnDrop = new QPushButton("Drop Game", this);
+    m_btnDrop->setObjectName("KailleraP2PSecondaryButton");
     btnRow->addWidget(m_btnReady);
     btnRow->addWidget(m_btnDrop);
-    btnRow->addStretch();
     m_recordCheck = new QCheckBox("Record game", this);
     const bool recordingEnabledByDefault = CoreGetKailleraEffectiveRecordingDefault();
     extern bool n02_kaillera_recording_enabled;
@@ -228,19 +442,28 @@ void KailleraP2PDialog::setupUI()
         n02_kaillera_recording_enabled = checked;
     });
     btnRow->addWidget(m_recordCheck);
+    btnRow->addStretch();
     leftLayout->addLayout(btnRow);
 
-    bottomLayout->addLayout(leftLayout, 1);
+    bottomLayout->addWidget(leftWidget, 0, Qt::AlignTop);
+    bottomLayout->addStretch(1);
 
     // Right side: Host group (host only)
     if (m_isHost)
     {
         m_hostGroup = new QGroupBox("Host:", this);
+        m_hostGroup->setObjectName("KailleraP2PGroup");
+        m_hostGroup->setMinimumWidth(200);
         auto* hostLayout = new QVBoxLayout(m_hostGroup);
+        hostLayout->setContentsMargins(9, 7, 9, 9);
+        hostLayout->setSpacing(8);
 
         auto* fdlyLayout = new QHBoxLayout();
+        fdlyLayout->setContentsMargins(0, 0, 0, 0);
+        fdlyLayout->setSpacing(6);
         fdlyLayout->addWidget(new QLabel("Frame Delay:", m_hostGroup));
         m_frameDelayCombo = new QComboBox(m_hostGroup);
+        m_frameDelayCombo->setObjectName("KailleraP2PCombo");
         m_frameDelayCombo->addItem("Auto");
         for (int i = 1; i <= 9; i++)
         {
@@ -251,18 +474,29 @@ void KailleraP2PDialog::setupUI()
 
         hostLayout->addWidget(new QLabel("Connect code:", m_hostGroup));
 
+        auto* codeRow = new QHBoxLayout();
+        codeRow->setContentsMargins(0, 0, 0, 0);
+        codeRow->setSpacing(6);
+
         m_connectCodeEdit = new QLineEdit(m_hostGroup);
+        m_connectCodeEdit->setObjectName("KailleraP2PInput");
         m_connectCodeEdit->setReadOnly(true);
         m_connectCodeEdit->setText("{waiting}");
-        hostLayout->addWidget(m_connectCodeEdit);
+        codeRow->addWidget(m_connectCodeEdit, 1);
 
-        m_btnCopy = new QPushButton("Copy", m_hostGroup);
-        hostLayout->addWidget(m_btnCopy);
+        m_btnCopy = new QPushButton(m_hostGroup);
+        m_btnCopy->setObjectName("KailleraP2PIconButton");
+        m_btnCopy->setToolTip("Copy connect code");
+        m_btnCopy->setIcon(themedP2PIcon("file-line"));
+        m_btnCopy->setIconSize(QSize(14, 14));
+        m_btnCopy->setFixedSize(28, 28);
+        codeRow->addWidget(m_btnCopy, 0, Qt::AlignVCenter);
+        hostLayout->addLayout(codeRow);
 
-        m_enlistCheck = new QCheckBox("Show on public\ngame list", m_hostGroup);
+        m_enlistCheck = new QCheckBox("Show on public list", m_hostGroup);
         hostLayout->addWidget(m_enlistCheck);
 
-        bottomLayout->addWidget(m_hostGroup);
+        bottomLayout->addWidget(m_hostGroup, 0, Qt::AlignTop);
 
         connect(m_btnCopy, &QPushButton::clicked, this, &KailleraP2PDialog::onCopyConnectCode);
         connect(m_enlistCheck, &QCheckBox::toggled, this, [this](bool checked) {
@@ -303,6 +537,8 @@ void KailleraP2PDialog::reject()
 {
     if (m_stepTimer) m_stepTimer->stop();
     if (m_travTimer) m_travTimer->stop();
+    m_ready = false;
+    if (m_btnReady) m_btnReady->setChecked(false);
 
     // Remove from public game list
     if (m_enlistCheck && m_enlistCheck->isChecked())
@@ -444,19 +680,26 @@ void KailleraP2PDialog::updateHostCodeUI()
 {
     if (!m_isHost || !m_connectCodeEdit) return;
 
-    bool showCode = m_isHost && !m_travHostRegSuspended;
-    if (m_hostGroup) m_hostGroup->setVisible(showCode);
-    if (!showCode) return;
+    if (m_hostGroup) m_hostGroup->setVisible(true);
+
+    const bool codeActive = !m_travHostRegSuspended;
+    if (m_connectCodeEdit) m_connectCodeEdit->setEnabled(codeActive);
+    if (m_btnCopy) m_btnCopy->setEnabled(codeActive);
+    if (m_enlistCheck) m_enlistCheck->setEnabled(codeActive);
+
+    if (!codeActive)
+    {
+        m_connectCodeEdit->setText("(peer connected)");
+        return;
+    }
 
     if (!m_travCode.isEmpty())
     {
         m_connectCodeEdit->setText(m_travCode);
-        if (m_btnCopy) m_btnCopy->setEnabled(true);
     }
     else if (!m_travHostIpPort.isEmpty())
     {
         m_connectCodeEdit->setText(m_travHostIpPort);
-        if (m_btnCopy) m_btnCopy->setEnabled(true);
     }
     else if (m_travHostIpPending)
     {
@@ -733,6 +976,7 @@ void KailleraP2PDialog::onGameEnded()
     CoreMarkKailleraGameInactive();
     CoreStopEmulation();
     m_ready = false;
+    if (m_btnReady) m_btnReady->setChecked(false);
     m_chat->append("<span style='color:" + QString(QApplication::palette().window().color().value() < 128 ? "cornflowerblue" : "darkblue") + ";'>" + timestamp() + "Game ended.</span>");
 }
 
@@ -779,6 +1023,7 @@ void KailleraP2PDialog::onPeerLeft()
 {
     m_chat->append("<span style='color:red;'>" + timestamp() + "Peer disconnected.</span>");
     m_ready = false;
+    if (m_btnReady) m_btnReady->setChecked(false);
 
     // If hosting by code, resume registration to mint a fresh code.
     if (m_isHost && m_travHostEnabled)
@@ -805,6 +1050,7 @@ void KailleraP2PDialog::onPeerLeft()
 
 void KailleraP2PDialog::onPeerInfo(QString name, QString app)
 {
+    emit peerNicknameResolved(name);
     m_chat->append("<span style='color:green;'>" + timestamp() + "Peer: " +
                    name.toHtmlEscaped() + " (" + app.toHtmlEscaped() + ")</span>");
 }
@@ -836,7 +1082,7 @@ void KailleraP2PDialog::onSendChat()
 
 void KailleraP2PDialog::onReady()
 {
-    m_ready = !m_ready;
+    m_ready = (m_btnReady != nullptr) ? m_btnReady->isChecked() : !m_ready;
 
     // Update the selected delay in UIBridge before setting ready
     if (m_isHost && m_frameDelayCombo)
