@@ -119,6 +119,11 @@ void KailleraPlaybackDialog::setupUI()
 
 void KailleraPlaybackDialog::onPlaybackTimer()
 {
+    // Drive the KSSDFA state machine so that KSSDFA_START_GAME (set by
+    // player_play) transitions to state 1→2 and fires gameCallback,
+    // which ultimately starts emulation.
+    n02::processStateMachineStep();
+
     // Detect playback ending naturally (recording ran out).
     // player_EndGame() sets player_playing=false and KSSDFA.state=0 from the
     // emulation thread. If we were tracking an active playback and it just
