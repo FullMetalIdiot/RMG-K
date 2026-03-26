@@ -8,6 +8,7 @@
 #include <QPainter>
 #include <QProxyStyle>
 #include <QStyledItemDelegate>
+#include <QTableWidget>
 
 class NoAccentTableStyle final : public QProxyStyle
 {
