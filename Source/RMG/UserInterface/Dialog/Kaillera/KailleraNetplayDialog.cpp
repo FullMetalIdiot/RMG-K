@@ -75,14 +75,16 @@ static constexpr int kMaxP2PRecentEntries = 12;
 
 namespace {
 
+static constexpr int kMaxTraversalDigits = 3;
+
 class PatternedCodeLineEdit final : public QLineEdit
 {
 public:
     explicit PatternedCodeLineEdit(QWidget* parent = nullptr)
         : QLineEdit(parent)
     {
-        setMaxLength(7);
-        setPlaceholderText("ABC#123");
+        setMaxLength(8);
+        setPlaceholderText("ABC@123");
 
         QObject::connect(this, &QLineEdit::textEdited, this, [this](const QString& text) {
             applyNormalizedText(text);
@@ -94,45 +96,45 @@ private:
     {
         QString letters;
         QString digits;
-        bool numericSectionStarted = false;
+        bool separatorRequested = false;
 
         for (const QChar& ch : rawText)
         {
             if (ch.isLetter())
             {
-                if (!numericSectionStarted && letters.size() < 3)
+                if (!separatorRequested && digits.isEmpty() && letters.size() < 4)
                 {
                     letters += ch.toUpper();
                 }
                 continue;
             }
 
-            if (ch == '#')
+            if (ch == '@' || ch == '#' || ch == '-' || ch == '_')
             {
-                if (letters.size() == 3)
+                if (letters.size() >= 3)
                 {
-                    numericSectionStarted = true;
+                    separatorRequested = true;
                 }
                 continue;
             }
 
             if (ch.isDigit())
             {
-                if (letters.size() == 3 && digits.size() < 3)
+                if (letters.size() >= 3 && digits.size() < kMaxTraversalDigits)
                 {
-                    numericSectionStarted = true;
+                    separatorRequested = true;
                     digits += ch;
                 }
                 continue;
             }
         }
 
-        if (!numericSectionStarted)
+        if (!separatorRequested)
         {
             return letters;
         }
 
-        return letters + "#" + digits;
+        return letters + "@" + digits;
     }
 
     void applyNormalizedText(const QString& rawText)
@@ -1430,7 +1432,8 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     m_p2pCurrentCodeEdit->setCursor(Qt::ArrowCursor);
     m_p2pCurrentCodeEdit->setAlignment(Qt::AlignCenter);
     configureLauncherLineEditMetrics(m_p2pCurrentCodeEdit, theme);
-    m_p2pCurrentCodeEdit->setFixedWidth(100);
+    m_p2pCurrentCodeEdit->setFixedWidth(
+        m_p2pCurrentCodeEdit->fontMetrics().horizontalAdvance("WXYZ@12345") + 40);
     m_p2pCopyAction = m_p2pCurrentCodeEdit->addAction(themedLineIcon("copy-line"), QLineEdit::TrailingPosition);
     m_p2pCopyAction->setToolTip("Copy connect code");
     connect(m_p2pCopyAction, &QAction::triggered, this, &KailleraNetplayDialog::onCopyP2PCode);
@@ -2536,6 +2539,7 @@ void KailleraNetplayDialog::onConfigureP2PCode()
 {
     cancelPendingP2PAutoClaim();
 
+    const QString theme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
     QString requested = currentP2PStaticCode();
     const QString oldCode = currentP2PStaticCode();
     const QString oldOwnerToken = currentP2PStaticCodeOwnerToken();
@@ -2543,19 +2547,24 @@ void KailleraNetplayDialog::onConfigureP2PCode()
     while (true)
     {
         QDialog dlg(this);
+        dlg.setObjectName("KailleraLauncherDialog");
         dlg.setWindowTitle("Configure P2P Code");
+        dlg.setWindowIcon(windowIcon());
+        dlg.setStyleSheet(buildLauncherStyleSheet(theme));
         auto* layout = new QVBoxLayout(&dlg);
         layout->setContentsMargins(12, 12, 12, 12);
-        layout->setSpacing(8);
+        layout->setSpacing(10);
 
         auto* infoLabel = new QLabel(
-            "Customize your host connect code below.\n"
-            "Connect codes must match the form ABC#123.",
+            "Connect codes are 3 or 4 letters, followed by 1-3 numbers.\n"
+            "Examples: ABC@1, PIKA@555, NAT@20.",
             &dlg);
         infoLabel->setWordWrap(true);
 
         auto* codeEdit = new PatternedCodeLineEdit(&dlg);
-        codeEdit->setFixedWidth(92);
+        codeEdit->setObjectName("KailleraInput");
+        configureLauncherLineEditMetrics(codeEdit, theme);
+        codeEdit->setFixedWidth(codeEdit->fontMetrics().horizontalAdvance("WXYZ@12345") + 24);
         if (!requested.isEmpty())
         {
             codeEdit->setText(requested);
@@ -2570,6 +2579,8 @@ void KailleraNetplayDialog::onConfigureP2PCode()
         statusLabel->setText(QString());
 
         auto* btnCheck = new QPushButton("Check Availability", &dlg);
+        btnCheck->setObjectName("KailleraSecondaryButton");
+        configureLauncherButtonMetrics(btnCheck);
         auto* inputLayout = new QHBoxLayout();
         inputLayout->setContentsMargins(0, 0, 0, 0);
         inputLayout->setSpacing(8);
@@ -2582,13 +2593,17 @@ void KailleraNetplayDialog::onConfigureP2PCode()
         btnLayout->setSpacing(8);
         auto* btnAccept = new QPushButton("Accept", &dlg);
         auto* btnCancel = new QPushButton("Cancel", &dlg);
+        btnAccept->setObjectName("KailleraPrimaryButton");
+        btnCancel->setObjectName("KailleraSecondaryButton");
+        configureLauncherButtonMetrics(btnAccept);
+        configureLauncherButtonMetrics(btnCancel);
+        configureLauncherAccentPalette(btnAccept);
         btnAccept->setEnabled(false);
         btnLayout->addWidget(btnAccept);
         btnLayout->addWidget(btnCancel);
         btnLayout->addStretch();
 
         layout->addWidget(infoLabel);
-        layout->addSpacing(4);
         layout->addLayout(inputLayout);
         layout->addWidget(statusLabel);
         layout->addLayout(btnLayout);
@@ -2613,7 +2628,7 @@ void KailleraNetplayDialog::onConfigureP2PCode()
             if (normalizedRequest.isEmpty())
             {
                 resetAvailability();
-                setStatus("Enter exactly 3 letters or a full code like CAT#123.", "#b00020");
+                setStatus("Enter 3 or 4 letters or a full code like CATS@123.", "#b00020");
                 return;
             }
 
@@ -2764,8 +2779,7 @@ void KailleraNetplayDialog::onConfigureP2PCode()
             requested = normalizeTraversalCode(QString::fromUtf8(parts[3]));
             QMessageBox::information(this, "Configure P2P Code",
                 "That code was taken before it could be claimed.\n"
-                "Suggested code: " + requested + "\n"
-                "Check availability again to accept it.");
+                "Suggested code: " + requested);
             continue;
         }
 
@@ -3286,23 +3300,38 @@ static bool looksLikeTraversalCode(const QString& s)
     }
     if (text.size() < 4) return false;
 
-    const QString prefix = text.left(3);
-    for (const QChar& ch : prefix)
+    int prefixLength = 0;
+    while (prefixLength < text.size() && prefixLength < 4 && text[prefixLength].isLetter())
     {
-        if (!ch.isLetter()) return false;
+        ++prefixLength;
     }
+    if (prefixLength < 3) return false;
+    if (prefixLength < text.size() && text[prefixLength].isLetter()) return false;
 
-    QString digits = text.mid(3);
-    if (digits.startsWith('#') || digits.startsWith('-') || digits.startsWith('_'))
+    QString digits = text.mid(prefixLength);
+    if (digits.startsWith('@') || digits.startsWith('#') || digits.startsWith('-') || digits.startsWith('_'))
         digits.remove(0, 1);
     if (digits.isEmpty()) return false;
+    if (digits.size() > kMaxTraversalDigits) return false;
     for (const QChar& ch : digits)
     {
         if (!ch.isDigit()) return false;
     }
-    bool ok = false;
-    const int number = digits.toInt(&ok);
-    return ok && number >= 0;
+    return true;
+}
+
+static QString stripTraversalLeadingZeros(QString digits)
+{
+    int firstNonZero = 0;
+    while (firstNonZero < digits.size() && digits[firstNonZero] == '0')
+    {
+        ++firstNonZero;
+    }
+    if (firstNonZero >= digits.size())
+    {
+        return "0";
+    }
+    return digits.mid(firstNonZero);
 }
 
 static QString normalizeTraversalCode(const QString& s)
@@ -3311,18 +3340,19 @@ static QString normalizeTraversalCode(const QString& s)
     text.remove(' ');
     if (!looksLikeTraversalCode(text)) return QString();
 
-    QString digits = text.mid(3);
-    if (digits.startsWith('#') || digits.startsWith('-') || digits.startsWith('_'))
+    int prefixLength = 0;
+    while (prefixLength < text.size() && prefixLength < 4 && text[prefixLength].isLetter())
+    {
+        ++prefixLength;
+    }
+
+    QString digits = text.mid(prefixLength);
+    if (digits.startsWith('@') || digits.startsWith('#') || digits.startsWith('-') || digits.startsWith('_'))
         digits.remove(0, 1);
+    if (digits.size() > kMaxTraversalDigits) return QString();
+    digits = stripTraversalLeadingZeros(digits);
 
-    bool ok = false;
-    const int number = digits.toInt(&ok);
-    if (!ok || number < 0) return QString();
-
-    const QString numberString = QString::number(number);
-    const QString normalizedDigits =
-        numberString.rightJustified(std::max(3, static_cast<int>(numberString.length())), '0');
-    return text.left(3) + "#" + normalizedDigits;
+    return text.left(prefixLength) + "@" + digits;
 }
 
 static QString normalizeTraversalClaimTarget(const QString& s)
@@ -3337,30 +3367,29 @@ static QString normalizeTraversalClaimTarget(const QString& s)
         if (ch == '.' || ch == ':' || ch == '/') return QString();
     }
 
-    if (text.size() < 3) return QString();
-    const QString prefix = text.left(3);
-    for (const QChar& ch : prefix)
+    int prefixLength = 0;
+    while (prefixLength < text.size() && prefixLength < 4 && text[prefixLength].isLetter())
     {
-        if (!ch.isLetter()) return QString();
+        ++prefixLength;
     }
+    if (prefixLength < 3) return QString();
+    if (prefixLength < text.size() && text[prefixLength].isLetter()) return QString();
 
-    QString suffix = text.mid(3);
+    const QString prefix = text.left(prefixLength);
+    QString suffix = text.mid(prefixLength);
     if (suffix.isEmpty()) return prefix;
-    if (suffix.startsWith('#') || suffix.startsWith('-') || suffix.startsWith('_'))
+    if (suffix.startsWith('@') || suffix.startsWith('#') || suffix.startsWith('-') || suffix.startsWith('_'))
         suffix.remove(0, 1);
     if (suffix.isEmpty()) return prefix;
+    if (suffix.size() > kMaxTraversalDigits) return QString();
 
     for (const QChar& ch : suffix)
     {
         if (!ch.isDigit()) return QString();
     }
+    suffix = stripTraversalLeadingZeros(suffix);
 
-    bool ok = false;
-    const int number = suffix.toInt(&ok);
-    if (!ok || number < 0) return QString();
-
-    const QString digits = QString::number(number).rightJustified(std::max(3, static_cast<int>(QString::number(number).length())), '0');
-    return prefix + "#" + digits;
+    return prefix + "@" + suffix;
 }
 
 void KailleraNetplayDialog::onP2PJoin()

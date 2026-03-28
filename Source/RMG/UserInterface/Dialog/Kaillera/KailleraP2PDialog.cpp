@@ -41,8 +41,7 @@ static QString timestamp()
 
 static QString formatTraversalCode(const QString& prefix, int number)
 {
-    const QString digits = QString::number(number);
-    return prefix + "#" + digits.rightJustified(std::max(3, static_cast<int>(digits.length())), '0');
+    return prefix + "@" + QString::number(number);
 }
 
 static QIcon themedP2PIcon(const QString& iconName)
@@ -236,16 +235,20 @@ static QString normalizeTraversalCode(const QString& input)
 
     if (s.size() < 4) return QString();
 
-    QString prefix = s.left(3);
-    for (const QChar& ch : prefix)
+    int prefixLength = 0;
+    while (prefixLength < s.size() && prefixLength < 4 && s[prefixLength].isLetter())
     {
-        if (!ch.isLetter()) return QString();
+        ++prefixLength;
     }
+    if (prefixLength < 3) return QString();
+    if (prefixLength < s.size() && s[prefixLength].isLetter()) return QString();
 
-    QString digits = s.mid(3);
-    if (digits.startsWith('#') || digits.startsWith('-') || digits.startsWith('_'))
+    const QString prefix = s.left(prefixLength);
+    QString digits = s.mid(prefixLength);
+    if (digits.startsWith('@') || digits.startsWith('#') || digits.startsWith('-') || digits.startsWith('_'))
         digits.remove(0, 1);
     if (digits.isEmpty()) return QString();
+    if (digits.size() > 3) return QString();
 
     for (const QChar& ch : digits)
     {
@@ -259,7 +262,7 @@ static QString normalizeTraversalCode(const QString& input)
     return formatTraversalCode(prefix, number);
 }
 
-// Matches n02-rmg's LooksLikeTraversalCode() intent, but accepts # and optional leading zeroes.
+// Matches n02-rmg's LooksLikeTraversalCode() intent, but accepts legacy separators and leading zeroes.
 static bool looksLikeTraversalCode(const QString& s)
 {
     return !normalizeTraversalCode(s).isEmpty();
