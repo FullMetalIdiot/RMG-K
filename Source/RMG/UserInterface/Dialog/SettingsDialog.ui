@@ -66,35 +66,17 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QComboBox" name="themeComboBox">
-                   <item>
-                    <property name="text">
-                     <string>Modern</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>Native</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>Fusion</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>Fusion Warm</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>Fusion Dark</string>
-                    </property>
-                   </item>
+                 <widget class="QComboBox" name="themeComboBox">
                   </widget>
                  </item>
                 </layout>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="showLegacyThemesCheckBox">
+                 <property name="text">
+                  <string>Show legacy themes</string>
+                 </property>
+                </widget>
                </item>
                <item>
                 <layout class="QHBoxLayout" name="horizontalLayout_14">
