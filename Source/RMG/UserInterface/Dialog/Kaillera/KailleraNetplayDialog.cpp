@@ -52,6 +52,7 @@
 #include <QFrame>
 #include <QEvent>
 #include <QListWidget>
+#include <QListView>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QSignalBlocker>
@@ -76,6 +77,43 @@ static constexpr int kMaxP2PRecentEntries = 12;
 namespace {
 
 static constexpr int kMaxTraversalDigits = 3;
+
+int compareNullableInts(int left, int right)
+{
+    if (left == right)
+    {
+        return 0;
+    }
+    if (left < 0)
+    {
+        return 1;
+    }
+    if (right < 0)
+    {
+        return -1;
+    }
+
+    return (left < right) ? -1 : 1;
+}
+
+int compareServerEntriesForColumn(const ServerEntry& left, const ServerEntry& right, int sortColumn)
+{
+    switch (sortColumn)
+    {
+    case 1:
+        return QString::localeAwareCompare(left.name, right.name);
+    case 2:
+        return QString::localeAwareCompare(left.country, right.country);
+    case 3:
+        return compareNullableInts(left.playerCount, right.playerCount);
+    case 4:
+        return compareNullableInts(left.pingValue, right.pingValue);
+    case 5:
+        return QString::localeAwareCompare(left.host, right.host);
+    default:
+        return 0;
+    }
+}
 
 class PatternedCodeLineEdit final : public QLineEdit
 {
@@ -348,6 +386,7 @@ public:
         setSizeAdjustPolicy(QComboBox::AdjustToContentsOnFirstShow);
     }
 
+
     void setDisplayTextInset(int inset)
     {
         m_displayTextInset = inset;
@@ -366,6 +405,31 @@ public:
             m_popup = new QFrame(this, Qt::Popup | Qt::FramelessWindowHint);
             m_popup->setObjectName("KailleraSearchPopup");
             m_popup->installEventFilter(this);
+            m_popup->setStyleSheet(
+                "QFrame#KailleraSearchPopup {"
+                "  border: 1px solid palette(mid);"
+                "  border-radius: 8px;"
+                "  background-color: palette(base);"
+                "}"
+                "QLineEdit {"
+                "  border: 1px solid palette(mid);"
+                "  border-radius: 6px;"
+                "  background-color: palette(base);"
+                "  padding: 4px 8px;"
+                "}"
+                "QListWidget {"
+                "  border: none;"
+                "  background: transparent;"
+                "  outline: none;"
+                "}"
+                "QListWidget::item {"
+                "  padding: 2px 8px;"
+                "  min-height: 18px;"
+                "}"
+                "QListWidget::item:selected {"
+                "  background-color: palette(highlight);"
+                "  color: palette(highlighted-text);"
+                "}");
             auto* popupLayout = new QVBoxLayout(m_popup);
             popupLayout->setContentsMargins(8, 8, 8, 8);
             popupLayout->setSpacing(6);
@@ -405,7 +469,6 @@ public:
 
         refreshPopupItems(QString());
         m_searchEdit->clear();
-
         const int popupWidth = qMax(width(), 340);
         const int visibleItems = qMin(10, qMax(1, m_listWidget->count()));
         const int rowHeight = m_listWidget->sizeHintForRow(0) > 0 ? m_listWidget->sizeHintForRow(0) : 22;
@@ -677,6 +740,49 @@ static void configureLauncherComboMetrics(QComboBox* combo)
 
     combo->setMinimumHeight(32);
     combo->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+}
+
+static void configureLauncherComboPopup(QComboBox* combo, const QString& theme)
+{
+    if (combo == nullptr || theme != "Modern")
+    {
+        return;
+    }
+
+    auto* popupView = new QListView(combo);
+    popupView->setUniformItemSizes(true);
+    popupView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    popupView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    const QPalette appPalette = QApplication::palette();
+    const QColor windowColor = appPalette.window().color();
+    const QColor baseColor = appPalette.base().color();
+    const bool darkTheme = windowColor.value() < 128;
+    const QColor popupColor = darkTheme
+        ? baseColor.darker(106)
+        : baseColor.darker(108);
+    const QColor borderColor = darkTheme
+        ? windowColor.lighter(142)
+        : windowColor.darker(132);
+
+    popupView->setStyleSheet(QString(
+        "QListView {"
+        "  background-color: %1;"
+        "  border: 1px solid %2;"
+        "  outline: none;"
+        "  padding: 2px 0px;"
+        "}"
+        "QListView::item {"
+        "  padding: 2px 8px;"
+        "  min-height: 18px;"
+        "  margin: 0px;"
+        "}"
+        "QListView::item:selected {"
+        "  background-color: palette(highlight);"
+        "  color: palette(highlighted-text);"
+        "}").arg(popupColor.name(QColor::HexRgb), borderColor.name(QColor::HexRgb)));
+
+    combo->setView(popupView);
 }
 
 static bool isFusionFamilyTheme(const QString& theme)
@@ -1022,9 +1128,9 @@ static QString buildLauncherStyleSheet(const QString& theme)
             "  margin: 1px;"
             "}"
             "QComboBox#KailleraInputCombo::down-arrow {"
-            "  image: url(%3);"
-            "  width: 10px;"
-            "  height: 10px;"
+            "  image: url(%5);"
+            "  width: 12px;"
+            "  height: 12px;"
             "}"
             "QComboBox#KailleraInputCombo QAbstractItemView {"
             "  border: 1px solid palette(mid);"
@@ -1235,16 +1341,18 @@ QWidget* KailleraNetplayDialog::createServerTab()
     tablePaneLayout->setContentsMargins(0, 0, 0, 0);
     tablePaneLayout->setSpacing(0);
 
-    m_serverTable = new QTableWidget(0, 5, tablePane);
+    m_serverTable = new QTableWidget(0, 6, tablePane);
     m_serverTable->setObjectName("KailleraSurface");
     m_serverTable->setProperty("launcherServerTable", true);
-    m_serverTable->setHorizontalHeaderLabels({"*", "Name", "Players", "Ping", "IP"});
+    m_serverTable->setHorizontalHeaderLabels({"*", "Name", "Country", "Players", "Ping", "IP"});
     m_serverTable->verticalHeader()->setVisible(false);
     m_serverTable->setShowGrid(false);
     m_serverTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_serverTable->setSelectionMode(QAbstractItemView::SingleSelection);
     m_serverTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_serverTable->setSortingEnabled(false);
+    m_serverTable->horizontalHeader()->setSortIndicatorShown(true);
+    m_serverTable->horizontalHeader()->setSortIndicator(m_serverSortColumn, m_serverSortOrder);
     m_serverTable->horizontalHeader()->setMinimumSectionSize(16);
     // Stretch the IP column so IPs aren't truncated.
     m_serverTable->horizontalHeader()->setStretchLastSection(false);
@@ -1252,14 +1360,16 @@ QWidget* KailleraNetplayDialog::createServerTab()
     m_serverTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
     m_serverTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
     m_serverTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
-    m_serverTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
+    m_serverTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+    m_serverTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
     QFont serverHeaderFont = m_serverTable->horizontalHeader()->font();
     serverHeaderFont.setBold(false);
     m_serverTable->horizontalHeader()->setFont(serverHeaderFont);
     m_serverTable->setColumnWidth(0, 28);
     m_serverTable->setColumnWidth(1, 170);
-    m_serverTable->setColumnWidth(2, 58);
-    m_serverTable->setColumnWidth(3, 60);
+    m_serverTable->setColumnWidth(2, 114);
+    m_serverTable->setColumnWidth(3, 70);
+    m_serverTable->setColumnWidth(4, 60);
     m_serverTable->setContextMenuPolicy(Qt::CustomContextMenu);
     applyNoAccentStyle(m_serverTable);
     m_serverTable->setItemDelegateForColumn(0, new CenteredIconDelegate(m_serverTable));
@@ -1281,6 +1391,33 @@ QWidget* KailleraNetplayDialog::createServerTab()
         toggleFavoriteServer(entry.host, entry.name);
     });
     connect(m_serverTable, &QTableWidget::itemSelectionChanged, this, &KailleraNetplayDialog::updateServerButtons);
+    connect(m_serverTable->horizontalHeader(), &QHeaderView::sectionClicked, this,
+        [this](int section)
+    {
+        if (section == 0)
+        {
+            return;
+        }
+
+        Qt::SortOrder order = Qt::AscendingOrder;
+        if (m_serverSortColumn == section)
+        {
+            order = (m_serverSortOrder == Qt::AscendingOrder)
+                ? Qt::DescendingOrder
+                : Qt::AscendingOrder;
+        }
+
+        m_serverSortColumn = section;
+        m_serverSortOrder = order;
+        m_serverTable->horizontalHeader()->setSortIndicator(section, order);
+
+        refreshServerListDisplay();
+        if (!m_pingAllInProgress)
+        {
+            cacheVisibleLiveServerOrder();
+            saveServerList();
+        }
+    });
     tablePaneLayout->addWidget(m_serverTable);
 
     m_btnAdd = new QPushButton(tablePane);
@@ -1334,6 +1471,7 @@ QWidget* KailleraNetplayDialog::createServerTab()
     m_frameDelayCombo = new QComboBox(tab);
     m_frameDelayCombo->setObjectName("KailleraInputCombo");
     configureLauncherComboMetrics(m_frameDelayCombo);
+    configureLauncherComboPopup(m_frameDelayCombo, theme);
     m_frameDelayCombo->addItem("Auto");
     m_frameDelayCombo->addItem("1 frame (8ms)");
     m_frameDelayCombo->addItem("2 frames (24ms)");
@@ -1387,6 +1525,7 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     m_p2pGameCombo = new SearchableComboBox(hostBody);
     m_p2pGameCombo->setObjectName("KailleraInputCombo");
     configureLauncherComboMetrics(m_p2pGameCombo);
+    configureLauncherComboPopup(m_p2pGameCombo, theme);
     if (theme != "Modern")
     {
         static_cast<SearchableComboBox*>(m_p2pGameCombo)->setDisplayTextInset(4);
@@ -1623,11 +1762,14 @@ void KailleraNetplayDialog::loadServerList()
         CoreSettingsGetStringListValue(SettingsID::Kaillera_ServerListNames);
     const std::vector<std::string> favoriteHosts =
         CoreSettingsGetStringListValue(SettingsID::Kaillera_ServerListHosts);
+    const std::vector<std::string> favoriteCountries =
+        CoreSettingsGetStringListValue(SettingsID::Kaillera_ServerListCountries);
     for (size_t i = 0; i < favoriteNames.size() && i < favoriteHosts.size(); ++i)
     {
         m_favoriteServers.append({
             QString::fromStdString(favoriteNames[i]),
             QString::fromStdString(favoriteHosts[i]),
+            (i < favoriteCountries.size()) ? QString::fromStdString(favoriteCountries[i]) : QString(),
             "-",
             -1,
             "-",
@@ -1639,6 +1781,8 @@ void KailleraNetplayDialog::loadServerList()
         CoreSettingsGetStringListValue(SettingsID::Kaillera_LiveServerCacheNames);
     const std::vector<std::string> cachedHosts =
         CoreSettingsGetStringListValue(SettingsID::Kaillera_LiveServerCacheHosts);
+    const std::vector<std::string> cachedCountries =
+        CoreSettingsGetStringListValue(SettingsID::Kaillera_LiveServerCacheCountries);
     for (size_t i = 0; i < cachedNames.size() && i < cachedHosts.size(); ++i)
     {
         const QString host = QString::fromStdString(cachedHosts[i]);
@@ -1650,6 +1794,7 @@ void KailleraNetplayDialog::loadServerList()
         m_cachedLiveServers.append({
             QString::fromStdString(cachedNames[i]),
             host,
+            (i < cachedCountries.size()) ? QString::fromStdString(cachedCountries[i]) : QString(),
             "-",
             -1,
             "-",
@@ -1664,41 +1809,38 @@ void KailleraNetplayDialog::saveServerList()
 {
     std::vector<std::string> favoriteNames;
     std::vector<std::string> favoriteHosts;
+    std::vector<std::string> favoriteCountries;
     favoriteNames.reserve(m_favoriteServers.size());
     favoriteHosts.reserve(m_favoriteServers.size());
+    favoriteCountries.reserve(m_favoriteServers.size());
     for (const auto& server : m_favoriteServers)
     {
         favoriteNames.push_back(server.name.toStdString());
         favoriteHosts.push_back(server.host.toStdString());
+        favoriteCountries.push_back(server.country.toStdString());
     }
 
     std::vector<std::string> cachedNames;
     std::vector<std::string> cachedHosts;
+    std::vector<std::string> cachedCountries;
     cachedNames.reserve(m_cachedLiveServers.size());
     cachedHosts.reserve(m_cachedLiveServers.size());
+    cachedCountries.reserve(m_cachedLiveServers.size());
     for (const auto& server : m_cachedLiveServers)
     {
         cachedNames.push_back(server.name.toStdString());
         cachedHosts.push_back(server.host.toStdString());
+        cachedCountries.push_back(server.country.toStdString());
     }
 
     CoreSettingsSetValue(SettingsID::Kaillera_ServerListNames, favoriteNames);
     CoreSettingsSetValue(SettingsID::Kaillera_ServerListHosts, favoriteHosts);
+    CoreSettingsSetValue(SettingsID::Kaillera_ServerListCountries, favoriteCountries);
     CoreSettingsSetValue(SettingsID::Kaillera_LiveServerCacheNames, cachedNames);
     CoreSettingsSetValue(SettingsID::Kaillera_LiveServerCacheHosts, cachedHosts);
+    CoreSettingsSetValue(SettingsID::Kaillera_LiveServerCacheCountries, cachedCountries);
     CoreSettingsSave();
 }
-
-// QTableWidgetItem subclass that sorts numerically by Qt::UserRole data
-class NumericSortItem : public QTableWidgetItem
-{
-public:
-    using QTableWidgetItem::QTableWidgetItem;
-    bool operator<(const QTableWidgetItem& other) const override
-    {
-        return data(Qt::UserRole).toInt() < other.data(Qt::UserRole).toInt();
-    }
-};
 
 void KailleraNetplayDialog::refreshServerListDisplay()
 {
@@ -1728,9 +1870,25 @@ void KailleraNetplayDialog::refreshServerListDisplay()
         }
     }
 
-    std::stable_sort(nonFavorites.begin(), nonFavorites.end(), [](const ServerEntry& a, const ServerEntry& b) {
-        return a.pingValue < b.pingValue;
-    });
+    const bool deferPingResort = (m_pingAllInProgress && m_serverSortColumn == 4);
+    if (!deferPingResort && m_serverSortColumn != 0)
+    {
+        std::stable_sort(nonFavorites.begin(), nonFavorites.end(),
+            [this](const ServerEntry& a, const ServerEntry& b)
+        {
+            int compare = compareServerEntriesForColumn(a, b, m_serverSortColumn);
+            if (compare == 0)
+            {
+                compare = QString::localeAwareCompare(a.name, b.name);
+            }
+            if (compare == 0)
+            {
+                compare = QString::localeAwareCompare(a.host, b.host);
+            }
+
+            return (m_serverSortOrder == Qt::AscendingOrder) ? (compare < 0) : (compare > 0);
+        });
+    }
 
     for (const auto& server : nonFavorites)
     {
@@ -1756,15 +1914,18 @@ void KailleraNetplayDialog::refreshServerListDisplay()
         auto* nameItem = new QTableWidgetItem(server.name);
         m_serverTable->setItem(i, 1, nameItem);
 
+        auto* countryItem = new QTableWidgetItem(server.country);
+        m_serverTable->setItem(i, 2, countryItem);
+
         auto* playersItem = new QTableWidgetItem(server.players);
         playersItem->setTextAlignment(Qt::AlignCenter);
-        m_serverTable->setItem(i, 2, playersItem);
+        m_serverTable->setItem(i, 3, playersItem);
 
         auto* pingItem = new QTableWidgetItem(server.ping);
         pingItem->setTextAlignment(Qt::AlignCenter);
-        m_serverTable->setItem(i, 3, pingItem);
+        m_serverTable->setItem(i, 4, pingItem);
 
-        m_serverTable->setItem(i, 4, new QTableWidgetItem(server.host));
+        m_serverTable->setItem(i, 5, new QTableWidgetItem(server.host));
     }
 
     bool restoredSelection = false;
@@ -1849,6 +2010,7 @@ void KailleraNetplayDialog::fetchLiveServerList()
             {
                 if (liveServer.host == favoriteServer.host)
                 {
+                    favoriteServer.country = liveServer.country;
                     favoriteServer.players = liveServer.players;
                     favoriteServer.playerCount = liveServer.playerCount;
                     break;
@@ -2049,7 +2211,8 @@ QVector<ServerEntry> KailleraNetplayDialog::parseLiveServerList(const QByteArray
             else
             {
                 bool ok = false;
-                const int parsedCount = players.toInt(&ok);
+                const QString currentPlayers = players.section('/', 0, 0).trimmed();
+                const int parsedCount = currentPlayers.toInt(&ok);
                 if (ok)
                 {
                     playerCount = parsedCount;
@@ -2057,7 +2220,13 @@ QVector<ServerEntry> KailleraNetplayDialog::parseLiveServerList(const QByteArray
             }
         }
 
-        parsedServers.append({name, hostPort, players, playerCount, "-", 999999});
+        QString country;
+        if (parts.size() > 4)
+        {
+            country = parts[4].trimmed();
+        }
+
+        parsedServers.append({name, hostPort, country, players, playerCount, "-", 999999});
     }
 
     return parsedServers;
@@ -2096,7 +2265,7 @@ void KailleraNetplayDialog::toggleFavoriteServer(const QString& host, const QStr
     }
     else
     {
-        ServerEntry entry{name, host, "-", -1, "-", 999999};
+        ServerEntry entry{name, host, QString(), "-", -1, "-", 999999};
         const int cachedIndex = cachedServerIndexByHost(host);
         if (cachedIndex >= 0)
         {
@@ -2204,7 +2373,7 @@ void KailleraNetplayDialog::updateVisibleServerPing(const QString& host, const Q
             continue;
         }
 
-        QTableWidgetItem* pingItem = m_serverTable->item(row, 3);
+        QTableWidgetItem* pingItem = m_serverTable->item(row, 4);
         if (pingItem != nullptr)
         {
             pingItem->setText(pingText);
@@ -2819,10 +2988,11 @@ void KailleraNetplayDialog::onAddServer()
     }
     else
     {
-        ServerEntry entry{name, host, "-", -1, "-", 999999};
+        ServerEntry entry{name, host, QString(), "-", -1, "-", 999999};
         const int cachedIndex = cachedServerIndexByHost(host);
         if (cachedIndex >= 0)
         {
+            entry.country = m_cachedLiveServers[cachedIndex].country;
             entry.ping = m_cachedLiveServers[cachedIndex].ping;
             entry.pingValue = m_cachedLiveServers[cachedIndex].pingValue;
         }
@@ -2876,10 +3046,19 @@ void KailleraNetplayDialog::onEditServer()
         return;
     }
 
+    const QString previousHost = m_favoriteServers[favoriteIndex].host;
+    const QString previousCountry = m_favoriteServers[favoriteIndex].country;
+
     m_favoriteServers[favoriteIndex].name = name;
     m_favoriteServers[favoriteIndex].host = host;
+    m_favoriteServers[favoriteIndex].country = (host == previousHost) ? previousCountry : QString();
     m_favoriteServers[favoriteIndex].ping = "-";
     m_favoriteServers[favoriteIndex].pingValue = 999999;
+    const int cachedIndex = cachedServerIndexByHost(host);
+    if (cachedIndex >= 0)
+    {
+        m_favoriteServers[favoriteIndex].country = m_cachedLiveServers[cachedIndex].country;
+    }
     refreshServerListDisplay();
     saveServerList();
     schedulePingAllServers();
@@ -3014,6 +3193,7 @@ void KailleraNetplayDialog::onWaitingGamesReply(QNetworkReply* reply)
     wgTable->setSortingEnabled(true);
     wgTable->horizontalHeader()->setMinimumSectionSize(16);
     applyNoAccentStyle(wgTable);
+    installHeaderDoubleClickSortToggle(wgTable);
     wgLayout->addWidget(wgTable);
 
     auto* wgBtnLayout = new QHBoxLayout();

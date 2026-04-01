@@ -30,6 +30,7 @@
 struct ServerEntry {
     QString name;
     QString host; // "ip:port"
+    QString country;
     QString players = "-";
     int playerCount = -1;
     QString ping;
@@ -121,6 +122,8 @@ private:
     QVector<ServerEntry> m_favoriteServers;
     QVector<ServerEntry> m_cachedLiveServers;
     QVector<ServerEntry> m_displayServers;
+    int m_serverSortColumn = 4;
+    Qt::SortOrder m_serverSortOrder = Qt::AscendingOrder;
 
     // Server tab buttons
     QPushButton* m_btnAdd = nullptr;

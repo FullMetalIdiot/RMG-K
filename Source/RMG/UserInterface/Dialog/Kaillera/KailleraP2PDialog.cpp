@@ -27,6 +27,8 @@
 #include <QClipboard>
 #include <QApplication>
 #include <QIcon>
+#include <QFrame>
+#include <QListView>
 
 #include <algorithm>
 #include <cstring>
@@ -112,8 +114,8 @@ static QString buildP2PStyleSheet(const QString& theme)
         "}"
         "QComboBox#KailleraP2PCombo::down-arrow {"
         "  image: url(%1);"
-        "  width: 10px;"
-        "  height: 10px;"
+        "  width: 12px;"
+        "  height: 12px;"
         "}"
         "QComboBox#KailleraP2PCombo QAbstractItemView {"
         "  border: 1px solid palette(mid);"
@@ -219,6 +221,49 @@ static QString buildP2PStyleSheet(const QString& theme)
         "  background-color: palette(midlight);"
         "}"
     ).arg(comboArrowIcon);
+}
+
+static void configureP2PComboPopup(QComboBox* combo, const QString& theme)
+{
+    if (combo == nullptr || theme != "Modern")
+    {
+        return;
+    }
+
+    auto* popupView = new QListView(combo);
+    popupView->setUniformItemSizes(true);
+    popupView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    popupView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+    const QPalette appPalette = QApplication::palette();
+    const QColor windowColor = appPalette.window().color();
+    const QColor baseColor = appPalette.base().color();
+    const bool darkTheme = windowColor.value() < 128;
+    const QColor popupColor = darkTheme
+        ? baseColor.darker(106)
+        : baseColor.darker(108);
+    const QColor borderColor = darkTheme
+        ? windowColor.lighter(142)
+        : windowColor.darker(132);
+
+    popupView->setStyleSheet(QString(
+        "QListView {"
+        "  background-color: %1;"
+        "  border: 1px solid %2;"
+        "  outline: none;"
+        "  padding: 2px 0px;"
+        "}"
+        "QListView::item {"
+        "  padding: 2px 8px;"
+        "  min-height: 18px;"
+        "  margin: 0px;"
+        "}"
+        "QListView::item:selected {"
+        "  background-color: palette(highlight);"
+        "  color: palette(highlighted-text);"
+        "}").arg(popupColor.name(QColor::HexRgb), borderColor.name(QColor::HexRgb)));
+
+    combo->setView(popupView);
 }
 
 // Check if a string looks like a NAT traversal code rather than an IP address.
@@ -497,6 +542,7 @@ void KailleraP2PDialog::setupUI()
         fdlyLayout->addWidget(new QLabel("Frame Delay:", m_hostGroup));
         m_frameDelayCombo = new QComboBox(m_hostGroup);
         m_frameDelayCombo->setObjectName("KailleraP2PCombo");
+        configureP2PComboPopup(m_frameDelayCombo, theme);
         m_frameDelayCombo->addItem("Auto");
         for (int i = 1; i <= 9; i++)
         {

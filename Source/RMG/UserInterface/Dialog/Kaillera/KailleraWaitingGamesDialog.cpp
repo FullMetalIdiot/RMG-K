@@ -66,6 +66,7 @@ KailleraWaitingGamesDialog::KailleraWaitingGamesDialog(QWidget* parent)
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSortingEnabled(true);
     applyNoAccentStyle(m_table);
+    installHeaderDoubleClickSortToggle(m_table);
     connect(m_table, &QTableWidget::cellDoubleClicked,
             this, &KailleraWaitingGamesDialog::onRowDoubleClicked);
     mainLayout->addWidget(m_table, 1);

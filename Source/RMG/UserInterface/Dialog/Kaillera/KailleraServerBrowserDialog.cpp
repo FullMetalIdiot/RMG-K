@@ -1036,6 +1036,7 @@ void KailleraServerBrowserDialog::setupUI()
     m_userTable->setColumnWidth(1, 64);
     m_userTable->setColumnWidth(2, 64);
     applyNoAccentStyle(m_userTable);
+    installHeaderDoubleClickSortToggle(m_userTable);
     m_userTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_userTable->horizontalHeader(), &QWidget::customContextMenuRequested,
             this, [this](const QPoint& pos) {
@@ -1128,6 +1129,7 @@ QWidget* KailleraServerBrowserDialog::createGameListWidget()
     m_gameTable->setSortingEnabled(true);
     m_gameTable->horizontalHeader()->setMinimumSectionSize(16);
     applyNoAccentStyle(m_gameTable);
+    installHeaderDoubleClickSortToggle(m_gameTable);
     m_gameTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_gameTable->horizontalHeader(), &QWidget::customContextMenuRequested,
             this, [this](const QPoint& pos) {
@@ -1289,6 +1291,7 @@ QWidget* KailleraServerBrowserDialog::createGameRoomWidget()
     m_roomLobbyTable->setSortingEnabled(true);
     m_roomLobbyTable->horizontalHeader()->setMinimumSectionSize(16);
     applyNoAccentStyle(m_roomLobbyTable);
+    installHeaderDoubleClickSortToggle(m_roomLobbyTable);
     m_roomLobbyTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_roomLobbyTable->horizontalHeader(), &QWidget::customContextMenuRequested,
             this, [this](const QPoint& pos) {
