@@ -1607,8 +1607,15 @@ QWidget* KailleraNetplayDialog::createP2PTab()
     });
 
     // Host button
+    const int hostStatusIndent = codeLabel->sizeHint().width() + codeLayout->spacing();
     auto* hostBtnLayout = new QHBoxLayout();
+    hostBtnLayout->addSpacing(hostStatusIndent);
+    m_p2pCodeStatusLabel = new QLabel(hostBody);
+    m_p2pCodeStatusLabel->hide();
+    m_p2pCodeStatusLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    hostBtnLayout->addWidget(m_p2pCodeStatusLabel, 0, Qt::AlignLeft | Qt::AlignVCenter);
     hostBtnLayout->addStretch();
+    hostBtnLayout->addSpacing(10);
     m_btnP2PHost = new QPushButton("Host", hostBody);
     m_btnP2PHost->setObjectName("KailleraPrimaryButton");
     configureLauncherButtonMetrics(m_btnP2PHost);
@@ -2501,6 +2508,42 @@ void KailleraNetplayDialog::refreshP2PStaticCodeDisplay()
     }
 }
 
+void KailleraNetplayDialog::showP2PCodeStatusMessage(const QString& message, const QColor& color)
+{
+    if (m_p2pCodeStatusLabel == nullptr)
+    {
+        return;
+    }
+
+    if (m_p2pCodeStatusTimer == nullptr)
+    {
+        m_p2pCodeStatusTimer = new QTimer(this);
+        m_p2pCodeStatusTimer->setSingleShot(true);
+        connect(m_p2pCodeStatusTimer, &QTimer::timeout, this, [this]() {
+            if (m_p2pCodeStatusLabel == nullptr)
+            {
+                return;
+            }
+
+            m_p2pCodeStatusLabel->clear();
+            m_p2pCodeStatusLabel->hide();
+        });
+    }
+
+    if (message.isEmpty())
+    {
+        m_p2pCodeStatusTimer->stop();
+        m_p2pCodeStatusLabel->clear();
+        m_p2pCodeStatusLabel->hide();
+        return;
+    }
+
+    m_p2pCodeStatusLabel->setStyleSheet(QString("color: %1; font-weight: 600;").arg(color.name()));
+    m_p2pCodeStatusLabel->setText(message);
+    m_p2pCodeStatusLabel->show();
+    m_p2pCodeStatusTimer->start(4000);
+}
+
 void KailleraNetplayDialog::cancelPendingP2PAutoClaim()
 {
     m_p2pAutoClaimAwaitingAck = false;
@@ -2704,6 +2747,7 @@ void KailleraNetplayDialog::onTabChanged(int index)
 void KailleraNetplayDialog::onConfigureP2PCode()
 {
     cancelPendingP2PAutoClaim();
+    showP2PCodeStatusMessage(QString(), QColor());
 
     const QString theme = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme));
     QString requested = currentP2PStaticCode();
@@ -2927,8 +2971,7 @@ void KailleraNetplayDialog::onConfigureP2PCode()
 
             if (confirmed)
             {
-                QMessageBox::information(this, "Configure P2P Code",
-                    "Your connect code is now " + code + ".");
+                showP2PCodeStatusMessage("Connect code updated to " + code + ".", QColor("#2E7D32"));
             }
             else
             {
