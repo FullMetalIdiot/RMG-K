@@ -1404,7 +1404,7 @@ QWidget* KailleraNetplayDialog::createServerTab()
     m_serverTable = new QTableWidget(0, 6, tablePane);
     m_serverTable->setObjectName("KailleraSurface");
     m_serverTable->setProperty("launcherServerTable", true);
-    m_serverTable->setHorizontalHeaderLabels({"*", "Name", "Country", "Players", "Ping", "IP"});
+    m_serverTable->setHorizontalHeaderLabels({"*", "Name", "Region", "Players", "Ping", "IP"});
     m_serverTable->verticalHeader()->setVisible(false);
     m_serverTable->setShowGrid(false);
     m_serverTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -3243,6 +3243,7 @@ void KailleraNetplayDialog::onServerRightClicked(QPoint pos)
         actMoveDown->setEnabled(favoriteIndex + 1 < m_favoriteServers.size());
         menu.addSeparator();
     }
+    QAction* actCopyIp = menu.addAction("Copy IP");
     QAction* actPing = menu.addAction("Ping");
     QAction* actTraceroute = menu.addAction("Traceroute");
 
@@ -3264,6 +3265,10 @@ void KailleraNetplayDialog::onServerRightClicked(QPoint pos)
     else if (chosen == actMoveDown)
     {
         moveFavoriteServer(favoriteIndex, 1);
+    }
+    else if (chosen == actCopyIp)
+    {
+        QApplication::clipboard()->setText(entry.host.section(':', 0, 0));
     }
     else if (chosen == actPing)
     {
