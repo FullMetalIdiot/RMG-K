@@ -310,6 +310,20 @@ bool kaillera_core_connect(char * ip, int port){
 	return false;
 }
 
+bool kaillera_core_finish_login(int timeout_ms) {
+	if (timeout_ms <= 0)
+		return KAILLERAC.USERSTAT > 1;
+
+	const int start = p2p_GetTime();
+	while (KAILLERAC.connection &&
+		KAILLERAC.USERSTAT == 1 &&
+		(p2p_GetTime() - start) < timeout_ms) {
+		kaillera_step();
+	}
+
+	return KAILLERAC.USERSTAT > 1;
+}
+
 void kaillera_ProcessGeneralInstruction(k_instruction * ki) {
 	n02_TRACE();
 	switch (ki->type) {

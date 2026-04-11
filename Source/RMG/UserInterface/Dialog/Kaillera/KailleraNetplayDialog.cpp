@@ -68,6 +68,7 @@
 #include <ctime>
 #include <fstream>
 #include <future>
+#include <memory>
 #include <algorithm>
 
 #include <windows.h>
@@ -1301,6 +1302,7 @@ KailleraNetplayDialog::KailleraNetplayDialog(QWidget* parent)
     // This replaces the blocking while-loop in n02::selectServerDialog()
     n02::setStateInput(0);
     m_stateMachineTimer = new QTimer(this);
+    m_stateMachineTimer->setTimerType(Qt::PreciseTimer);
     connect(m_stateMachineTimer, &QTimer::timeout, this, &KailleraNetplayDialog::onStateMachineTimer);
     m_stateMachineTimer->start(1);
 
@@ -1781,8 +1783,9 @@ void KailleraNetplayDialog::loadSettings()
     }
     m_usernameEdit->setText(QString::fromStdString(username));
 
-    // Load frame delay
-    int frameDelay = CoreSettingsGetIntValue(SettingsID::Kaillera_SpoofPing);
+    // Load the server-mode frame-delay selection.
+    // This is a dropdown index (Auto, 1-9 frames), not a raw spoof-ping value.
+    int frameDelay = CoreSettingsGetIntValue(SettingsID::Kaillera_FrameDelay);
     if (frameDelay < 0 || frameDelay > 9) frameDelay = 0;
     m_frameDelayCombo->setCurrentIndex(frameDelay);
 
@@ -1804,7 +1807,7 @@ void KailleraNetplayDialog::saveSettings()
 {
     CoreSettingsSetValue(SettingsID::Kaillera_Username,
                          m_usernameEdit->text().toStdString());
-    CoreSettingsSetValue(SettingsID::Kaillera_SpoofPing,
+    CoreSettingsSetValue(SettingsID::Kaillera_FrameDelay,
                          m_frameDelayCombo->currentIndex());
 
     // Tab order: 0=Server, 1=P2P
@@ -3513,9 +3516,21 @@ void KailleraNetplayDialog::onConnectServer()
                 return;
             }
         }
-        progress.close();
-
         const bool connected = connectFuture.get();
+        std::unique_ptr<KailleraServerBrowserDialog> browser;
+        if (connected)
+        {
+            // Construct the browser before finishing login so it receives the
+            // initial LONGSUCC lobby population callbacks.
+            browser = std::make_unique<KailleraServerBrowserDialog>(entry.name, nullptr);
+
+            // Finish the login speed test before handing control back to the
+            // Qt timer. The old Win32 client effectively kept polling here,
+            // which let the server measure the true join RTT instead of a
+            // timer-paced ACK cadence.
+            kaillera_core_finish_login(1000);
+        }
+        progress.close();
         if (stateTimerWasRunning && m_stateMachineTimer != nullptr)
         {
             m_stateMachineTimer->start(1);
@@ -3528,11 +3543,10 @@ void KailleraNetplayDialog::onConnectServer()
 
             // Open the server browser dialog as a standalone top-level window
             // so it doesn't stay on top of the emulator frame
-            KailleraServerBrowserDialog browser(entry.name, nullptr);
-            browser.show();
+            browser->show();
 
             QEventLoop loop;
-            connect(&browser, &QDialog::finished, &loop, &QEventLoop::quit);
+            connect(browser.get(), &QDialog::finished, &loop, &QEventLoop::quit);
             loop.exec();
             // Browser dialog handles disconnect/cleanup on close
 
