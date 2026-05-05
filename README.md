@@ -7,14 +7,23 @@ This fork is focused around netplay with the Kaillera protocol.
 <p align="center"><a href='https://ko-fi.com/J3J21OOC74' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a></p>
 
 <p align="center">
-<img width="717" height="706" alt="image" src="https://github.com/user-attachments/assets/3cc981da-b9c1-4ed3-b9aa-ca081aa801a4" />
+<img width="962" height="860" alt="image" src="https://github.com/user-attachments/assets/adc7a1b3-0c4f-4d5d-9f88-79622e87f6ee" />
 </p>
 
 
 ## The Kaillera Part:
-### N02 Client
-<p align="center">
-<img width="494" height="329" alt="image" src="https://github.com/user-attachments/assets/47adbed6-640b-4238-9927-c2114aa48c7d" />
+We've ported the old Kaillera client over to QT6 to give the netplay experience more of a modern look and feel, with the same netcode we all know and "love"
+### Server mode
+Select a Kaillera server from the list, create a room and play with your friends!
+<img width="594" height="590" alt="image" src="https://github.com/user-attachments/assets/7bbd49fe-439d-45fa-9b27-0fc2a0e83b72" />
+<img width="952" height="686" alt="image" src="https://github.com/user-attachments/assets/42480ec8-11d5-44ba-b820-89bf3df0cdec" />
+<img width="959" height="687" alt="image" src="https://github.com/user-attachments/assets/397fd566-285e-4296-b073-91f22906198e" />
+
+### Peer to Peer (P2P)
+Want to play someone without involving a server (and without having to port forward?) Select P2P and click host to open up a lobby then have your friend connect to you by entering your connect code! The host can also select the frame delay for the two of you if you think your connection is better than the Kaillera ping calculation.
+<img width="594" height="590" alt="image" src="https://github.com/user-attachments/assets/71b234b6-58dc-463b-81fd-7023715382d6" />
+<img width="559" height="514" alt="image" src="https://github.com/user-attachments/assets/cd8708f0-4c54-4f2e-aa7e-3b826bc66975" />
+
 </p>
 
 #### Frame Delay (Previously Ping Spoofing)
@@ -22,41 +31,32 @@ This fork is focused around netplay with the Kaillera protocol.
 - Auto, Server will assign frame delay based on ping.
 - 1 - 9 frames = sets your frame delay by spoofing your ping toward the middle of the frame window (every 16ms)
 - Notifies lobby and game room of frame delay spoofing
+  <img width="229" height="49" alt="image" src="https://github.com/user-attachments/assets/37e79e01-f4e9-4118-982e-df138f8d1a07" />
 
-#### Drop Actually Works!
-- Clicking Drop will stop emulation (if player 1 clicks drop, it will drop for all others in the room)
-- After all players drop, the room owner is able to restart emulation for everyone
+  <img width="283" height="38" alt="image" src="https://github.com/user-attachments/assets/6616186e-ab5d-4598-8b2c-4916d4a54dc4" />
 
 #### In Game Chat
 - On-Screen Chat Display: No more needing to alt-tab to see what your opponent is saying in chat. This can be customized or disabled in Settings -> OSD
 - Press Enter to Chat: You can now chat while in-game without switching windows! This can be rebound in Hotkeys->System if you'd like to use a different key. Press ESC to cancel
+<img width="317" height="105" alt="image" src="https://github.com/user-attachments/assets/11dd1ddc-7a36-45fc-bdbc-39a88f34106c" />
 
 #### Replays system
 - Playback overhaul: Reworked the krec playback screen, fixing numerous bugs and making it easier to use. You can now see the players from the replay list!
+<img width="745" height="474" alt="image" src="https://github.com/user-attachments/assets/448e8185-5037-4526-8e84-e1a83f39cf84" />
 
-  <img width="604" height="198" alt="image" src="https://github.com/user-attachments/assets/c2b52fb1-6bb4-43a2-b36e-90145a166116" />
 
-#### Static Netplay Settings
-FOR NOW, the following settings are hard coded when a user starts a netplay session:
 
-| Setting | Local Play | Kaillera Netplay |
-|---------|------------|------------------|
-| RandomizeInterrupt | true (random) | false (deterministic) |
-| CPU_Emulator | User's choice (default 2) | 2 (dynarec) |
-| CountPerOp | ROM database / overlay | 0 (use ROM database) |
-| CountPerOpDenomPot | 0 | 0 |
-| SiDmaDuration | -1 | -1 |
-| DisableExtraMem | User's choice | false (8MB enabled) |
-| DisableSaveFileLoading | false (loads saves) | true (fresh saves) |
-| RSP_Plugin | User's choice | Hacktarux/Azimer HLE RSP Plugin |
 
 ## Input
 
 ### Raphnet N64 Adapter support
-- Yes, your N64 controller works :D
+- We've also added range and button detection for raphnet adapters
+<img width="419" height="431" alt="image" src="https://github.com/user-attachments/assets/aa99fdec-3e7f-49ba-b8ca-329a5b09cbce" />
+
 ### GCC Adapter Support
 - OEM Nintendo Gamecube adapter and Input Integrity Lossless adapter tested and working
-  <img width="582" height="650" alt="image" src="https://github.com/user-attachments/assets/193d6069-c917-43fc-a557-9b897da273fd" />
+ <img width="575" height="730" alt="image" src="https://github.com/user-attachments/assets/726c3416-87d3-4ddc-b4be-91896f253b68" />
+
 
 ### RMG-Input (pronounced Nrage)
 RMG-Input was changed so it now uses independent per-axis scaling similar to the Ownasaurus [USBtoN64v2](https://github.com/Ownasaurus/USBtoN64v2) adapter and N-Rage input plugin:
@@ -64,7 +64,8 @@ RMG-Input was changed so it now uses independent per-axis scaling similar to the
 - Configurable range slider (0-100%) with default 66% to match N-Rage
 - Linear scale: 100% = 127 (protocol max)
 - Per-axis deadzone handling instead of circular deadzone
-  <img width="1059" height="736" align="center" alt="Screenshot 2026-01-16 181813" src="https://github.com/user-attachments/assets/eacacb9b-f828-4486-a0f0-a8b539c8951f" />
+- 
+<img width="973" height="856" alt="image" src="https://github.com/user-attachments/assets/6e834d3e-fa92-47b2-9d23-6bb81531357f" />
 
 
 
